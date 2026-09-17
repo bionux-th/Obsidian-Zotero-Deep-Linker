@@ -1,65 +1,82 @@
-import {
-  App,
-  MarkdownView,
-  Modal,
-  Notice,
-  Plugin,
-  PluginSettingTab,
-  Setting,
-  TextComponent,
-} from "obsidian";
-import { get as httpGet } from "http";
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
-const I18N = {
+// src/main.ts
+var main_exports = {};
+__export(main_exports, {
+  default: () => ZoteroDeepLinkerPlugin
+});
+module.exports = __toCommonJS(main_exports);
+var import_obsidian = require("obsidian");
+var import_http = require("http");
+var I18N = {
   zh: {
-    commandName: "添加 Zotero 深链接",
-    ribbonTooltip: "添加 Zotero 深链接",
-    modalTitle: "添加 Zotero 深链接",
-    modalHint: "搜索文献，或从左侧收藏夹直接选择；随后选择要链接的位置。",
-    searchLabel: "搜索 Zotero 文献",
-    searchPlaceholder: "例如：DNA-CMG-Pol epsilon 或 10.1038/…",
-    searchBtn: "搜索",
-    loadingCollections: "正在读取 Zotero 收藏夹…",
-    loadingItems: "正在读取文献…",
-    searching: "正在搜索 Zotero…",
-    noResults: "没有找到匹配文献。",
-    noItems: "这个位置没有可选择的文献条目。",
-    libraryRoot: "我的文库",
-    unnamedCollection: "未命名收藏夹",
-    untitledItem: "无题名条目",
-    chooseTargetTitle: "选择 Zotero 链接对象",
-    choiceItem: "文献条目",
-    choiceItemDesc: "在 Zotero 中选中该文献。",
-    choicePdf: "选择 PDF 或 PDF 注释",
-    choicePdfDesc: "继续选择附件，或定位到某条高亮、批注或图片注释。",
-    pdfTitle: "选择 PDF 附件",
-    pdfLoading: "正在读取附件…",
-    pdfNone: "此文献没有可识别的 PDF 附件。",
-    pdfOpenBtn: "插入 PDF 链接",
-    pdfAnnoBtn: "选择注释",
-    pdfHint: "点击直接打开 PDF；使用“注释”定位到具体标记。",
-    annoTitle: "选择 PDF 注释",
-    annoLoading: "正在读取 Zotero 注释…",
-    annoNone: "这个 PDF 暂无 Zotero 注释。",
-    pageLabelPrefix: "第 ",
-    pageLabelSuffix: " 页",
-    pageUnknown: "未记录页码",
-    annotationTypeFallback: "注释",
-    annotationNoText: "无文字内容（可能是图片或笔迹注释）",
-    noticeInserted: "已插入 Zotero 链接。",
-    noticeOpenMarkdown: "请先打开一个 Markdown 笔记，以便插入链接。",
-    errorConnect: "无法连接 Zotero Local API（{detail}）。请确认 Zotero 正在运行并已启用本地 API。",
-    errorHttp: "Zotero 返回 HTTP {status}",
-    errorJson: "Zotero 返回的不是有效 JSON",
-    errorTimeout: "连接 Zotero 超时",
-    errorFormat: "Zotero 返回了意外的数据格式",
+    commandName: "\u6DFB\u52A0 Zotero \u6DF1\u94FE\u63A5",
+    ribbonTooltip: "\u6DFB\u52A0 Zotero \u6DF1\u94FE\u63A5",
+    modalTitle: "\u6DFB\u52A0 Zotero \u6DF1\u94FE\u63A5",
+    modalHint: "\u641C\u7D22\u6587\u732E\uFF0C\u6216\u4ECE\u5DE6\u4FA7\u6536\u85CF\u5939\u76F4\u63A5\u9009\u62E9\uFF1B\u968F\u540E\u9009\u62E9\u8981\u94FE\u63A5\u7684\u4F4D\u7F6E\u3002",
+    searchLabel: "\u641C\u7D22 Zotero \u6587\u732E",
+    searchPlaceholder: "\u4F8B\u5982\uFF1ADNA-CMG-Pol epsilon \u6216 10.1038/\u2026",
+    searchBtn: "\u641C\u7D22",
+    loadingCollections: "\u6B63\u5728\u8BFB\u53D6 Zotero \u6536\u85CF\u5939\u2026",
+    loadingItems: "\u6B63\u5728\u8BFB\u53D6\u6587\u732E\u2026",
+    searching: "\u6B63\u5728\u641C\u7D22 Zotero\u2026",
+    noResults: "\u6CA1\u6709\u627E\u5230\u5339\u914D\u6587\u732E\u3002",
+    noItems: "\u8FD9\u4E2A\u4F4D\u7F6E\u6CA1\u6709\u53EF\u9009\u62E9\u7684\u6587\u732E\u6761\u76EE\u3002",
+    libraryRoot: "\u6211\u7684\u6587\u5E93",
+    unnamedCollection: "\u672A\u547D\u540D\u6536\u85CF\u5939",
+    untitledItem: "\u65E0\u9898\u540D\u6761\u76EE",
+    chooseTargetTitle: "\u9009\u62E9 Zotero \u94FE\u63A5\u5BF9\u8C61",
+    choiceItem: "\u6587\u732E\u6761\u76EE",
+    choiceItemDesc: "\u5728 Zotero \u4E2D\u9009\u4E2D\u8BE5\u6587\u732E\u3002",
+    choicePdf: "\u9009\u62E9 PDF \u6216 PDF \u6CE8\u91CA",
+    choicePdfDesc: "\u7EE7\u7EED\u9009\u62E9\u9644\u4EF6\uFF0C\u6216\u5B9A\u4F4D\u5230\u67D0\u6761\u9AD8\u4EAE\u3001\u6279\u6CE8\u6216\u56FE\u7247\u6CE8\u91CA\u3002",
+    pdfTitle: "\u9009\u62E9 PDF \u9644\u4EF6",
+    pdfLoading: "\u6B63\u5728\u8BFB\u53D6\u9644\u4EF6\u2026",
+    pdfNone: "\u6B64\u6587\u732E\u6CA1\u6709\u53EF\u8BC6\u522B\u7684 PDF \u9644\u4EF6\u3002",
+    pdfOpenBtn: "\u63D2\u5165 PDF \u94FE\u63A5",
+    pdfAnnoBtn: "\u9009\u62E9\u6CE8\u91CA",
+    pdfHint: "\u70B9\u51FB\u76F4\u63A5\u6253\u5F00 PDF\uFF1B\u4F7F\u7528\u201C\u6CE8\u91CA\u201D\u5B9A\u4F4D\u5230\u5177\u4F53\u6807\u8BB0\u3002",
+    annoTitle: "\u9009\u62E9 PDF \u6CE8\u91CA",
+    annoLoading: "\u6B63\u5728\u8BFB\u53D6 Zotero \u6CE8\u91CA\u2026",
+    annoNone: "\u8FD9\u4E2A PDF \u6682\u65E0 Zotero \u6CE8\u91CA\u3002",
+    pageLabelPrefix: "\u7B2C ",
+    pageLabelSuffix: " \u9875",
+    pageUnknown: "\u672A\u8BB0\u5F55\u9875\u7801",
+    annotationTypeFallback: "\u6CE8\u91CA",
+    annotationNoText: "\u65E0\u6587\u5B57\u5185\u5BB9\uFF08\u53EF\u80FD\u662F\u56FE\u7247\u6216\u7B14\u8FF9\u6CE8\u91CA\uFF09",
+    noticeInserted: "\u5DF2\u63D2\u5165 Zotero \u94FE\u63A5\u3002",
+    noticeOpenMarkdown: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A Markdown \u7B14\u8BB0\uFF0C\u4EE5\u4FBF\u63D2\u5165\u94FE\u63A5\u3002",
+    errorConnect: "\u65E0\u6CD5\u8FDE\u63A5 Zotero Local API\uFF08{detail}\uFF09\u3002\u8BF7\u786E\u8BA4 Zotero \u6B63\u5728\u8FD0\u884C\u5E76\u5DF2\u542F\u7528\u672C\u5730 API\u3002",
+    errorHttp: "Zotero \u8FD4\u56DE HTTP {status}",
+    errorJson: "Zotero \u8FD4\u56DE\u7684\u4E0D\u662F\u6709\u6548 JSON",
+    errorTimeout: "\u8FDE\u63A5 Zotero \u8D85\u65F6",
+    errorFormat: "Zotero \u8FD4\u56DE\u4E86\u610F\u5916\u7684\u6570\u636E\u683C\u5F0F",
     settingsTitle: "Zotero Deep Linker",
-    settingsApiUrl: "Zotero Local API 地址",
-    settingsApiUrlDesc: "通常为 http://127.0.0.1:23119；需在 Zotero 设置中启用本地 API。",
-    settingsResultLimit: "搜索结果数量",
-    settingsResultLimitDesc: "每次搜索最多显示的 Zotero 文献数量。",
-    settingsColWidth: "文件夹列最小宽度",
-    settingsColWidthDesc: "浏览器左侧收藏夹列的最小宽度；可根据文件夹名称长度调整。",
+    settingsApiUrl: "Zotero Local API \u5730\u5740",
+    settingsApiUrlDesc: "\u901A\u5E38\u4E3A http://127.0.0.1:23119\uFF1B\u9700\u5728 Zotero \u8BBE\u7F6E\u4E2D\u542F\u7528\u672C\u5730 API\u3002",
+    settingsResultLimit: "\u641C\u7D22\u7ED3\u679C\u6570\u91CF",
+    settingsResultLimitDesc: "\u6BCF\u6B21\u641C\u7D22\u6700\u591A\u663E\u793A\u7684 Zotero \u6587\u732E\u6570\u91CF\u3002",
+    settingsColWidth: "\u6587\u4EF6\u5939\u5217\u6700\u5C0F\u5BBD\u5EA6",
+    settingsColWidthDesc: "\u6D4F\u89C8\u5668\u5DE6\u4FA7\u6536\u85CF\u5939\u5217\u7684\u6700\u5C0F\u5BBD\u5EA6\uFF1B\u53EF\u6839\u636E\u6587\u4EF6\u5939\u540D\u79F0\u957F\u5EA6\u8C03\u6574\u3002"
   },
   en: {
     commandName: "Add Zotero Deep Link",
@@ -67,11 +84,11 @@ const I18N = {
     modalTitle: "Add Zotero Deep Link",
     modalHint: "Search literature or pick from collections, then choose link target.",
     searchLabel: "Search Zotero",
-    searchPlaceholder: "e.g. DNA-CMG-Pol epsilon or 10.1038/…",
+    searchPlaceholder: "e.g. DNA-CMG-Pol epsilon or 10.1038/\u2026",
     searchBtn: "Search",
-    loadingCollections: "Loading Zotero collections…",
-    loadingItems: "Loading items…",
-    searching: "Searching Zotero…",
+    loadingCollections: "Loading Zotero collections\u2026",
+    loadingItems: "Loading items\u2026",
+    searching: "Searching Zotero\u2026",
     noResults: "No matching items found.",
     noItems: "No selectable items in this location.",
     libraryRoot: "My Library",
@@ -83,13 +100,13 @@ const I18N = {
     choicePdf: "PDF / Annotation",
     choicePdfDesc: "Choose attachment or locate a specific highlight/note.",
     pdfTitle: "Choose PDF Attachment",
-    pdfLoading: "Loading attachments…",
+    pdfLoading: "Loading attachments\u2026",
     pdfNone: "No recognizable PDF attachment for this item.",
     pdfOpenBtn: "Insert PDF Link",
     pdfAnnoBtn: "Choose Annotation",
-    pdfHint: "Click to open PDF; use “Annotation” to locate a specific mark.",
+    pdfHint: "Click to open PDF; use \u201CAnnotation\u201D to locate a specific mark.",
     annoTitle: "Choose PDF Annotation",
-    annoLoading: "Loading annotations…",
+    annoLoading: "Loading annotations\u2026",
     annoNone: "No annotations in this PDF.",
     pageLabelPrefix: "Page ",
     pageLabelSuffix: "",
@@ -109,21 +126,15 @@ const I18N = {
     settingsResultLimit: "Search Result Limit",
     settingsResultLimitDesc: "Maximum items per search.",
     settingsColWidth: "Collection Column Min Width",
-    settingsColWidthDesc: "Minimum width of the collections sidebar; adjust for long names.",
-  },
+    settingsColWidthDesc: "Minimum width of the collections sidebar; adjust for long names."
+  }
 };
-
-function getLocaleSafe(app: App): "zh" | "en" {
-  // Try to get locale from app, fallback to navigator.language
-  const locale = (app as any).vault?.getConfig?.("locale")
-    || (globalThis as any).navigator?.language
-    || "en";
+function getLocaleSafe(app) {
+  const locale = app.vault?.getConfig?.("locale") || globalThis.navigator?.language || "en";
   return locale.startsWith("zh") ? "zh" : "en";
 }
-
-let t = I18N.en;
-
-function tr(template: string, vars?: Record<string, string>): string {
+var t = I18N.en;
+function tr(template, vars) {
   let s = template;
   if (vars) {
     for (const [k, v] of Object.entries(vars)) {
@@ -132,62 +143,20 @@ function tr(template: string, vars?: Record<string, string>): string {
   }
   return s;
 }
-
-interface ZoteroLinkerSettings {
-  apiUrl: string;
-  resultLimit: number;
-  collectionColumnMinWidth: number;
-}
-
-interface ZoteroData {
-  key: string;
-  itemType?: string;
-  parentItem?: string;
-  title?: string;
-  firstCreator?: string;
-  date?: string;
-  publicationTitle?: string;
-  DOI?: string;
-  filename?: string;
-  annotationType?: string;
-  annotationPageLabel?: string;
-  annotationText?: string;
-  annotationComment?: string;
-}
-
-interface ZoteroItem {
-  key: string;
-  data: ZoteroData;
-}
-
-interface ZoteroCollectionData {
-  name?: string;
-  parentCollection?: string | false;
-}
-
-interface ZoteroCollection {
-  key: string;
-  data: ZoteroCollectionData;
-}
-
-const DEFAULT_SETTINGS: ZoteroLinkerSettings = {
+var DEFAULT_SETTINGS = {
   apiUrl: "http://127.0.0.1:23119",
   resultLimit: 30,
-  collectionColumnMinWidth: 150,
+  collectionColumnMinWidth: 150
 };
-
-function cleanApiUrl(url: string): string {
-  // The plugin appends Zotero's `/api/...` path itself.  Accept a pasted
-  // Local API URL ending in `/api` as well, to avoid generating `/api/api/...`.
+function cleanApiUrl(url) {
   return url.replace(/\/+$/, "").replace(/\/api$/i, "");
 }
-
-async function getLocalJson(url: string): Promise<unknown> {
+async function getLocalJson(url) {
   return new Promise((resolve, reject) => {
-    const request = httpGet(url, (response) => {
+    const request = (0, import_http.get)(url, (response) => {
       let body = "";
       response.setEncoding("utf8");
-      response.on("data", (chunk: string) => (body += chunk));
+      response.on("data", (chunk) => body += chunk);
       response.on("error", reject);
       response.on("end", () => {
         const status = response.statusCode ?? 0;
@@ -202,53 +171,47 @@ async function getLocalJson(url: string): Promise<unknown> {
         }
       });
     });
-    request.setTimeout(5_000, () => request.destroy(new Error(tr(t.errorTimeout))));
+    request.setTimeout(5e3, () => request.destroy(new Error(tr(t.errorTimeout))));
     request.on("error", reject);
   });
 }
-
-function textPreview(value: string | undefined, limit = 100): string {
+function textPreview(value, limit = 100) {
   const compact = (value ?? "").replace(/\s+/g, " ").trim();
-  return compact.length > limit ? `${compact.slice(0, limit)}…` : compact;
+  return compact.length > limit ? `${compact.slice(0, limit)}\u2026` : compact;
 }
-
-function pageLabel(data: ZoteroData): string {
-  return data.annotationPageLabel
-    ? `${t.pageLabelPrefix}${data.annotationPageLabel}${t.pageLabelSuffix}`
-    : t.pageUnknown;
+function pageLabel(data) {
+  return data.annotationPageLabel ? `${t.pageLabelPrefix}${data.annotationPageLabel}${t.pageLabelSuffix}` : t.pageUnknown;
 }
-
-export default class ZoteroDeepLinkerPlugin extends Plugin {
-  settings: ZoteroLinkerSettings = DEFAULT_SETTINGS;
-
-  async onload(): Promise<void> {
+var ZoteroDeepLinkerPlugin = class extends import_obsidian.Plugin {
+  constructor() {
+    super(...arguments);
+    __publicField(this, "settings", DEFAULT_SETTINGS);
+  }
+  async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     t = I18N[getLocaleSafe(this.app)];
     this.addSettingTab(new ZoteroLinkerSettingTab(this.app, this));
     this.addCommand({
       id: "insert-zotero-deep-link",
       name: t.commandName,
-      editorCallback: (editor) => new ZoteroSearchModal(this.app, this, (markdown) => editor.replaceSelection(markdown)).open(),
+      editorCallback: (editor) => new ZoteroSearchModal(this.app, this, (markdown) => editor.replaceSelection(markdown)).open()
     });
     this.addRibbonIcon("link", t.ribbonTooltip, () => {
-      const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+      const view = this.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
       if (!view) {
-        new Notice(t.noticeOpenMarkdown);
+        new import_obsidian.Notice(t.noticeOpenMarkdown);
         return;
       }
       new ZoteroSearchModal(this.app, this, (markdown) => view.editor.replaceSelection(markdown)).open();
     });
   }
-
-  async saveSettings(): Promise<void> {
+  async saveSettings() {
     await this.saveData(this.settings);
   }
-
-  async getItems(path: string, params: Record<string, string> = {}): Promise<ZoteroItem[]> {
-    return this.getRecords<ZoteroItem>(path, params);
+  async getItems(path, params = {}) {
+    return this.getRecords(path, params);
   }
-
-  private async getRecords<T>(path: string, params: Record<string, string> = {}): Promise<T[]> {
+  async getRecords(path, params = {}) {
     const query = new URLSearchParams({ format: "json", include: "data", ...params });
     const url = `${cleanApiUrl(this.settings.apiUrl)}${path}?${query.toString()}`;
     try {
@@ -256,82 +219,69 @@ export default class ZoteroDeepLinkerPlugin extends Plugin {
       if (!Array.isArray(payload)) {
         throw new Error(tr(t.errorFormat));
       }
-      return payload as T[];
+      return payload;
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       throw new Error(tr(t.errorConnect, { detail }));
     }
   }
-
-  async search(query: string): Promise<ZoteroItem[]> {
+  async search(query) {
     const items = await this.getItems("/api/users/0/items", {
       q: query,
-      limit: String(this.settings.resultLimit),
+      limit: String(this.settings.resultLimit)
     });
     return items.filter((item) => !["attachment", "note", "annotation"].includes(item.data.itemType ?? ""));
   }
-
-  async getCollections(): Promise<ZoteroCollection[]> {
-    return this.getRecords<ZoteroCollection>("/api/users/0/collections", { limit: "100" });
+  async getCollections() {
+    return this.getRecords("/api/users/0/collections", { limit: "100" });
   }
-
-  async getBrowseItems(collectionKey?: string): Promise<ZoteroItem[]> {
-    const path = collectionKey
-      ? `/api/users/0/collections/${encodeURIComponent(collectionKey)}/items/top`
-      : "/api/users/0/items/top";
+  async getBrowseItems(collectionKey) {
+    const path = collectionKey ? `/api/users/0/collections/${encodeURIComponent(collectionKey)}/items/top` : "/api/users/0/items/top";
     const pageSize = 100;
-    const allItems: ZoteroItem[] = [];
+    const allItems = [];
     for (let start = 0; ; start += pageSize) {
       const page = await this.getItems(path, {
         limit: String(pageSize),
         start: String(start),
         sort: "title",
-        direction: "asc",
+        direction: "asc"
       });
       allItems.push(...page);
       if (page.length < pageSize) break;
     }
     return allItems.filter((item) => !["attachment", "note", "annotation"].includes(item.data.itemType ?? ""));
   }
-
-  async getAttachments(itemKey: string): Promise<ZoteroItem[]> {
+  async getAttachments(itemKey) {
     const children = await this.getItems(`/api/users/0/items/${itemKey}/children`, { limit: "100" });
     return children.filter((item) => item.data.itemType === "attachment" && /pdf/i.test(item.data.filename ?? item.data.title ?? ""));
   }
-
-  async getAnnotations(pdfKey: string): Promise<ZoteroItem[]> {
+  async getAnnotations(pdfKey) {
     const items = await this.getItems("/api/users/0/items", { itemKey: pdfKey, limit: "100" });
     return items.filter((item) => item.data.itemType === "annotation" && item.data.parentItem === pdfKey);
   }
-
-  insert(callback: (markdown: string) => void, markdown: string): void {
+  insert(callback, markdown) {
     callback(markdown);
-    new Notice("已插入 Zotero 链接。");
+    new import_obsidian.Notice("\u5DF2\u63D2\u5165 Zotero \u94FE\u63A5\u3002");
   }
-}
-
-class ZoteroSearchModal extends Modal {
-  private input?: TextComponent;
-  private itemsEl?: HTMLElement;
-  private treeEl?: HTMLElement;
-  private selectedRow?: HTMLElement;
-  private selectedCollectionKey?: string;
-  private viewId = 0;
-
-  constructor(
-    app: App,
-    private readonly plugin: ZoteroDeepLinkerPlugin,
-    private readonly insert: (markdown: string) => void,
-  ) {
+};
+var ZoteroSearchModal = class extends import_obsidian.Modal {
+  constructor(app, plugin, insert) {
     super(app);
+    this.plugin = plugin;
+    this.insert = insert;
+    __publicField(this, "input");
+    __publicField(this, "itemsEl");
+    __publicField(this, "treeEl");
+    __publicField(this, "selectedRow");
+    __publicField(this, "selectedCollectionKey");
+    __publicField(this, "viewId", 0);
   }
-
-  onOpen(): void {
+  onOpen() {
     this.modalEl.addClass("zotero-deep-linker-modal");
     this.titleEl.setText(t.modalTitle);
     this.contentEl.createEl("p", { text: t.modalHint });
-    const search = new Setting(this.contentEl).setName(t.searchLabel);
-    this.input = new TextComponent(search.controlEl);
+    const search = new import_obsidian.Setting(this.contentEl).setName(t.searchLabel);
+    this.input = new import_obsidian.TextComponent(search.controlEl);
     this.input.setPlaceholder(t.searchPlaceholder);
     this.input.inputEl.addEventListener("keydown", (event) => {
       if (event.key === "Enter") void this.updateItems();
@@ -345,8 +295,7 @@ class ZoteroSearchModal extends Modal {
     this.input.inputEl.focus();
     void this.loadCollections();
   }
-
-  private async loadCollections(): Promise<void> {
+  async loadCollections() {
     const viewId = ++this.viewId;
     const treeEl = this.treeEl;
     const itemsEl = this.itemsEl;
@@ -354,7 +303,7 @@ class ZoteroSearchModal extends Modal {
     try {
       const collections = await this.plugin.getCollections();
       if (this.viewId !== viewId) return;
-      const libraryRow = this.addCollectionNode(collections, treeEl, undefined, t.libraryRoot, true);
+      const libraryRow = this.addCollectionNode(collections, treeEl, void 0, t.libraryRoot, true);
       libraryRow.classList.add("is-active");
       this.selectedRow = libraryRow;
       await this.updateItems();
@@ -362,8 +311,7 @@ class ZoteroSearchModal extends Modal {
       if (this.viewId === viewId) itemsEl.setText(error instanceof Error ? error.message : String(error));
     }
   }
-
-  private async updateItems(): Promise<void> {
+  async updateItems() {
     const query = this.input?.getValue().trim() ?? "";
     const itemsEl = this.itemsEl;
     if (!itemsEl) return;
@@ -383,20 +331,11 @@ class ZoteroSearchModal extends Modal {
       if (this.viewId === viewId) itemsEl.setText(error instanceof Error ? error.message : String(error));
     }
   }
-
-  private addCollectionNode(
-    collections: ZoteroCollection[],
-    container: HTMLElement,
-    parentKey: string | undefined,
-    name: string,
-    expanded = false,
-  ): HTMLElement {
+  addCollectionNode(collections, container, parentKey, name, expanded = false) {
     const node = container.createDiv({ cls: "zotero-deep-linker-tree-node" });
     const row = node.createDiv({ cls: "zotero-deep-linker-library-row is-clickable" });
-    const children = collections
-      .filter((collection) => (collection.data.parentCollection || undefined) === parentKey)
-      .sort((a, b) => (a.data.name || "").localeCompare(b.data.name || "", "zh-CN"));
-    const toggle = row.createEl("button", { cls: "zotero-deep-linker-tree-toggle", text: children.length ? (expanded ? "▾" : "▸") : "" });
+    const children = collections.filter((collection) => (collection.data.parentCollection || void 0) === parentKey).sort((a, b) => (a.data.name || "").localeCompare(b.data.name || "", "zh-CN"));
+    const toggle = row.createEl("button", { cls: "zotero-deep-linker-tree-toggle", text: children.length ? expanded ? "\u25BE" : "\u25B8" : "" });
     toggle.disabled = !children.length;
     row.createSpan({ cls: "zotero-deep-linker-collection-name", text: name });
     const childrenEl = node.createDiv({ cls: "zotero-deep-linker-tree-children" });
@@ -404,7 +343,7 @@ class ZoteroSearchModal extends Modal {
     toggle.addEventListener("click", (event) => {
       event.stopPropagation();
       const collapsed = childrenEl.classList.toggle("is-collapsed");
-      toggle.setText(collapsed ? "▸" : "▾");
+      toggle.setText(collapsed ? "\u25B8" : "\u25BE");
     });
     row.addEventListener("click", () => {
       this.treeEl?.querySelectorAll(".zotero-deep-linker-library-row").forEach((treeRow) => treeRow.classList.remove("is-active"));
@@ -419,29 +358,24 @@ class ZoteroSearchModal extends Modal {
     }
     return row;
   }
-
-  private addItemRow(container: HTMLElement, item: ZoteroItem): void {
+  addItemRow(container, item) {
     const row = container.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
     row.createEl("strong", { text: item.data.title || t.untitledItem });
-    row.createDiv({ text: [item.data.firstCreator, item.data.date, item.data.publicationTitle].filter(Boolean).join(" · ") });
+    row.createDiv({ text: [item.data.firstCreator, item.data.date, item.data.publicationTitle].filter(Boolean).join(" \xB7 ") });
     row.addEventListener("click", () => {
       this.close();
       new ZoteroTargetModal(this.app, this.plugin, item, this.insert).open();
     });
   }
-}
-
-class ZoteroTargetModal extends Modal {
-  constructor(
-    app: App,
-    private readonly plugin: ZoteroDeepLinkerPlugin,
-    private readonly item: ZoteroItem,
-    private readonly insert: (markdown: string) => void,
-  ) {
+};
+var ZoteroTargetModal = class extends import_obsidian.Modal {
+  constructor(app, plugin, item, insert) {
     super(app);
+    this.plugin = plugin;
+    this.item = item;
+    this.insert = insert;
   }
-
-  onOpen(): void {
+  onOpen() {
     this.titleEl.setText(t.chooseTargetTitle);
     this.contentEl.createEl("h3", { text: this.item.data.title || t.untitledItem });
     this.addChoice(t.choiceItem, t.choiceItemDesc, () => {
@@ -450,15 +384,13 @@ class ZoteroTargetModal extends Modal {
     });
     this.addChoice(t.choicePdf, t.choicePdfDesc, () => void this.choosePdf());
   }
-
-  private addChoice(name: string, description: string, action: () => void): void {
+  addChoice(name, description, action) {
     const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
     row.createEl("strong", { text: name });
     row.createDiv({ text: description });
     row.addEventListener("click", action);
   }
-
-  private async choosePdf(): Promise<void> {
+  async choosePdf() {
     this.contentEl.empty();
     this.contentEl.createEl("h3", { text: t.pdfTitle });
     this.contentEl.createDiv({ text: t.pdfLoading });
@@ -472,13 +404,13 @@ class ZoteroTargetModal extends Modal {
       }
       for (const attachment of attachments) {
         const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
-        row.createEl("strong", { text: attachment.data.filename || "PDF 附件" });
+        row.createEl("strong", { text: attachment.data.filename || "PDF \u9644\u4EF6" });
         row.createDiv({ text: t.pdfHint });
         const buttons = row.createDiv({ cls: "zotero-deep-linker-actions" });
         const open = buttons.createEl("button", { text: t.pdfOpenBtn });
         open.addEventListener("click", (event) => {
           event.stopPropagation();
-          this.plugin.insert(this.insert, `[${t.pdfOpenBtn.replace("Insert ", "").replace("插入 ", "")}：${attachment.data.filename || this.item.data.title || "Zotero"}](zotero://open-pdf/library/items/${attachment.key})`);
+          this.plugin.insert(this.insert, `[${t.pdfOpenBtn.replace("Insert ", "").replace("\u63D2\u5165 ", "")}\uFF1A${attachment.data.filename || this.item.data.title || "Zotero"}](zotero://open-pdf/library/items/${attachment.key})`);
           this.close();
         });
         const annotations = buttons.createEl("button", { text: t.pdfAnnoBtn });
@@ -491,8 +423,7 @@ class ZoteroTargetModal extends Modal {
       this.contentEl.setText(error instanceof Error ? error.message : String(error));
     }
   }
-
-  private async chooseAnnotation(pdf: ZoteroItem): Promise<void> {
+  async chooseAnnotation(pdf) {
     this.contentEl.empty();
     this.contentEl.createEl("h3", { text: t.annoTitle });
     this.contentEl.createDiv({ text: t.annoLoading });
@@ -508,10 +439,10 @@ class ZoteroTargetModal extends Modal {
         const data = annotation.data;
         const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
         const typeLabel = data.annotationType || t.annotationTypeFallback;
-        row.createEl("strong", { text: `${pageLabel(data)} · ${typeLabel}` });
+        row.createEl("strong", { text: `${pageLabel(data)} \xB7 ${typeLabel}` });
         row.createDiv({ text: textPreview(data.annotationComment) || textPreview(data.annotationText) || t.annotationNoText });
         row.addEventListener("click", () => {
-          const label = `Zotero ${typeLabel}：${pageLabel(data)}`;
+          const label = `Zotero ${typeLabel}\uFF1A${pageLabel(data)}`;
           this.plugin.insert(this.insert, `[${label}](zotero://open-pdf/library/items/${pdf.key}?page=${encodeURIComponent(data.annotationPageLabel || "")}&annotation=${annotation.key})`);
           this.close();
         });
@@ -520,36 +451,26 @@ class ZoteroTargetModal extends Modal {
       this.contentEl.setText(error instanceof Error ? error.message : String(error));
     }
   }
-}
-
-class ZoteroLinkerSettingTab extends PluginSettingTab {
-  constructor(app: App, private readonly plugin: ZoteroDeepLinkerPlugin) {
+};
+var ZoteroLinkerSettingTab = class extends import_obsidian.PluginSettingTab {
+  constructor(app, plugin) {
     super(app, plugin);
+    this.plugin = plugin;
   }
-
-  display(): void {
+  display() {
     this.containerEl.empty();
     this.containerEl.createEl("h2", { text: t.settingsTitle });
-    new Setting(this.containerEl)
-      .setName(t.settingsApiUrl)
-      .setDesc(t.settingsApiUrlDesc)
-      .addText((text) => text.setValue(this.plugin.settings.apiUrl).onChange(async (value) => {
-        this.plugin.settings.apiUrl = cleanApiUrl(value);
-        await this.plugin.saveSettings();
-      }));
-    new Setting(this.containerEl)
-      .setName(t.settingsResultLimit)
-      .setDesc(t.settingsResultLimitDesc)
-      .addSlider((slider) => slider.setLimits(10, 100, 10).setValue(this.plugin.settings.resultLimit).setDynamicTooltip().onChange(async (value) => {
-        this.plugin.settings.resultLimit = value;
-        await this.plugin.saveSettings();
-      }));
-    new Setting(this.containerEl)
-      .setName(t.settingsColWidth)
-      .setDesc(t.settingsColWidthDesc)
-      .addSlider((slider) => slider.setLimits(150, 450, 10).setValue(this.plugin.settings.collectionColumnMinWidth).setDynamicTooltip().onChange(async (value) => {
-        this.plugin.settings.collectionColumnMinWidth = value;
-        await this.plugin.saveSettings();
-      }));
+    new import_obsidian.Setting(this.containerEl).setName(t.settingsApiUrl).setDesc(t.settingsApiUrlDesc).addText((text) => text.setValue(this.plugin.settings.apiUrl).onChange(async (value) => {
+      this.plugin.settings.apiUrl = cleanApiUrl(value);
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(this.containerEl).setName(t.settingsResultLimit).setDesc(t.settingsResultLimitDesc).addSlider((slider) => slider.setLimits(10, 100, 10).setValue(this.plugin.settings.resultLimit).setDynamicTooltip().onChange(async (value) => {
+      this.plugin.settings.resultLimit = value;
+      await this.plugin.saveSettings();
+    }));
+    new import_obsidian.Setting(this.containerEl).setName(t.settingsColWidth).setDesc(t.settingsColWidthDesc).addSlider((slider) => slider.setLimits(150, 450, 10).setValue(this.plugin.settings.collectionColumnMinWidth).setDynamicTooltip().onChange(async (value) => {
+      this.plugin.settings.collectionColumnMinWidth = value;
+      await this.plugin.saveSettings();
+    }));
   }
-}
+};

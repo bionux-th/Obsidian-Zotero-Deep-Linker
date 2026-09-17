@@ -1,0 +1,119 @@
+.zotero-deep-linker-row {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  margin: 8px 0;
+  padding: 10px;
+}
+
+.zotero-deep-linker-library-items .zotero-deep-linker-row {
+  border-radius: 4px;
+  font-size: var(--font-ui-smaller);
+  line-height: 1.25;
+  margin: 4px 0;
+  padding: 6px 8px;
+}
+
+.zotero-deep-linker-library-items .zotero-deep-linker-row strong {
+  font-size: 0.95em;
+}
+
+.zotero-deep-linker-library-items .zotero-deep-linker-row > div {
+  margin-top: 2px;
+}
+
+.zotero-deep-linker-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.zotero-deep-linker-row > div {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-top: 4px;
+}
+
+.zotero-deep-linker-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.zotero-deep-linker-browser {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  display: grid;
+grid-template-columns: var(--zotero-collection-column-min-width, 150px) minmax(0, 1fr);
+  height: min(52vh, 420px);
+  overflow: hidden;
+}
+
+.zotero-deep-linker-modal {
+  width: min(92vw, 1000px);
+}
+
+.zotero-deep-linker-collection-tree,
+.zotero-deep-linker-library-items {
+  overflow: auto;
+  padding: 5px;
+}
+
+.zotero-deep-linker-collection-tree {
+  border-right: 1px solid var(--background-modifier-border);
+}
+
+.zotero-deep-linker-library-row {
+  align-items: center;
+  border-radius: 4px;
+  display: flex;
+  margin: 1px 0;
+  font-size: var(--font-ui-smaller);
+  line-height: 1.25;
+  padding: 3px 5px;
+}
+
+.zotero-deep-linker-collection-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.zotero-deep-linker-library-row:hover,
+.zotero-deep-linker-library-row.is-active {
+  background: var(--background-modifier-hover);
+}
+
+.zotero-deep-linker-library-row.is-active {
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+}
+
+.zotero-deep-linker-library-items .zotero-deep-linker-row:first-child {
+  margin-top: 0;
+}
+
+.zotero-deep-linker-tree-children {
+  border-left: 1px solid var(--background-modifier-border);
+  margin-left: 9px;
+  padding-left: 4px;
+}
+
+.zotero-deep-linker-tree-children.is-collapsed {
+  display: none;
+}
+
+.zotero-deep-linker-tree-toggle {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  height: 16px;
+  margin: 0 3px 0 0;
+  min-height: 16px;
+  padding: 0;
+  vertical-align: middle;
+  width: 12px;
+}
+
+.zotero-deep-linker-tree-toggle:disabled {
+  opacity: 0;
+}
