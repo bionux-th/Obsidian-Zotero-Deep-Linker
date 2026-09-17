@@ -10,6 +10,24 @@ import {
 } from "obsidian";
 import { get as httpGet } from "http";
 
+/**
+ * Zotero Deep Linker for Obsidian
+ * Copyright (C) 2024 Local
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 const I18N = {
   zh: {
     commandName: "添加 Zotero 深链接",
@@ -115,9 +133,9 @@ const I18N = {
 
 function getLocaleSafe(app: App): "zh" | "en" {
   // Try to get locale from app, fallback to navigator.language
-  const locale = (app as any).vault?.getConfig?.("locale")
-    || (globalThis as any).navigator?.language
-    || "en";
+  const vaultConfig = app.vault?.getConfig?.("locale");
+  const navLang = (typeof window !== "undefined" ? window.navigator?.language : undefined);
+  const locale = vaultConfig ?? navLang ?? "en";
   return locale.startsWith("zh") ? "zh" : "en";
 }
 
@@ -184,10 +202,10 @@ function cleanApiUrl(url: string): string {
 
 async function getLocalJson(url: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const request = httpGet(url, (response) => {
+    const request = httpGet(url, (response: import("http").IncomingMessage) => {
       let body = "";
       response.setEncoding("utf8");
-      response.on("data", (chunk: string) => (body += chunk));
+      response.on("data", (chunk: string) => { body += chunk; });
       response.on("error", reject);
       response.on("end", () => {
         const status = response.statusCode ?? 0;
@@ -529,7 +547,7 @@ class ZoteroLinkerSettingTab extends PluginSettingTab {
 
   display(): void {
     this.containerEl.empty();
-    this.containerEl.createEl("h2", { text: t.settingsTitle });
+    new Setting(this.containerEl).setName(t.settingsTitle).setHeading();
     new Setting(this.containerEl)
       .setName(t.settingsApiUrl)
       .setDesc(t.settingsApiUrlDesc)
@@ -540,16 +558,67 @@ class ZoteroLinkerSettingTab extends PluginSettingTab {
     new Setting(this.containerEl)
       .setName(t.settingsResultLimit)
       .setDesc(t.settingsResultLimitDesc)
-      .addSlider((slider) => slider.setLimits(10, 100, 10).setValue(this.plugin.settings.resultLimit).setDynamicTooltip().onChange(async (value) => {
+      .addSlider((slider) => slider.setLimits(10, 100, 10).setValue(this.plugin.settings.resultLimit).onChange(async (value) => {
         this.plugin.settings.resultLimit = value;
         await this.plugin.saveSettings();
       }));
     new Setting(this.containerEl)
       .setName(t.settingsColWidth)
       .setDesc(t.settingsColWidthDesc)
-      .addSlider((slider) => slider.setLimits(150, 450, 10).setValue(this.plugin.settings.collectionColumnMinWidth).setDynamicTooltip().onChange(async (value) => {
+      .addSlider((slider) => slider.setLimits(150, 450, 10).setValue(this.plugin.settings.collectionColumnMinWidth).onChange(async (value) => {
         this.plugin.settings.collectionColumnMinWidth = value;
         await this.plugin.saveSettings();
       }));
+  }
+
+  // For Obsidian 1.13.0+ settings search
+  getSettingDefinitions(): import("obsidian").SettingTabDefinition[] {
+    return [
+      {
+        settingId: "apiUrl",
+        display: {
+          type: "text",
+          name: t.settingsApiUrl,
+          description: t.settingsApiUrlDesc,
+        },
+        defaultValue: DEFAULT_SETTINGS.apiUrl,
+        onChange: async (value: string) => {
+          this.plugin.settings.apiUrl = cleanApiUrl(value);
+          await this.plugin.saveSettings();
+        },
+      },
+      {
+        settingId: "resultLimit",
+        display: {
+          type: "slider",
+          name: t.settingsResultLimit,
+          description: t.settingsResultLimitDesc,
+        },
+        defaultValue: DEFAULT_SETTINGS.resultLimit,
+        min: 10,
+        max: 100,
+        step: 10,
+        onChange: async (value: number) => {
+          this.plugin.settings.resultLimit = value;
+          await this.plugin.saveSettings();
+        },
+      },
+      {
+        settingId: "collectionColumnMinWidth",
+        display: {
+          type: "slider",
+          name: t.settingsColWidth,
+          description: t.settingsColWidthDesc,
+        },
+        defaultValue: DEFAULT_SETTINGS.collectionColumnMinWidth,
+        min: 150,
+        max: 450,
+        step: 10,
+        onChange: async (value: number) => {
+          this.plugin.settings.collectionColumnMinWidth = value;
+          await this.plugin.saveSettings();
+        },
+      },
+    ];
   }
 }

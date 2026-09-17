@@ -130,7 +130,9 @@ var I18N = {
   }
 };
 function getLocaleSafe(app) {
-  const locale = app.vault?.getConfig?.("locale") || globalThis.navigator?.language || "en";
+  const vaultConfig = app.vault?.getConfig?.("locale");
+  const navLang = typeof window !== "undefined" ? window.navigator?.language : void 0;
+  const locale = vaultConfig ?? navLang ?? "en";
   return locale.startsWith("zh") ? "zh" : "en";
 }
 var t = I18N.en;
@@ -156,7 +158,9 @@ async function getLocalJson(url) {
     const request = (0, import_http.get)(url, (response) => {
       let body = "";
       response.setEncoding("utf8");
-      response.on("data", (chunk) => body += chunk);
+      response.on("data", (chunk) => {
+        body += chunk;
+      });
       response.on("error", reject);
       response.on("end", () => {
         const status = response.statusCode ?? 0;
@@ -459,18 +463,68 @@ var ZoteroLinkerSettingTab = class extends import_obsidian.PluginSettingTab {
   }
   display() {
     this.containerEl.empty();
-    this.containerEl.createEl("h2", { text: t.settingsTitle });
+    new import_obsidian.Setting(this.containerEl).setName(t.settingsTitle).setHeading();
     new import_obsidian.Setting(this.containerEl).setName(t.settingsApiUrl).setDesc(t.settingsApiUrlDesc).addText((text) => text.setValue(this.plugin.settings.apiUrl).onChange(async (value) => {
       this.plugin.settings.apiUrl = cleanApiUrl(value);
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(this.containerEl).setName(t.settingsResultLimit).setDesc(t.settingsResultLimitDesc).addSlider((slider) => slider.setLimits(10, 100, 10).setValue(this.plugin.settings.resultLimit).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian.Setting(this.containerEl).setName(t.settingsResultLimit).setDesc(t.settingsResultLimitDesc).addSlider((slider) => slider.setLimits(10, 100, 10).setValue(this.plugin.settings.resultLimit).onChange(async (value) => {
       this.plugin.settings.resultLimit = value;
       await this.plugin.saveSettings();
     }));
-    new import_obsidian.Setting(this.containerEl).setName(t.settingsColWidth).setDesc(t.settingsColWidthDesc).addSlider((slider) => slider.setLimits(150, 450, 10).setValue(this.plugin.settings.collectionColumnMinWidth).setDynamicTooltip().onChange(async (value) => {
+    new import_obsidian.Setting(this.containerEl).setName(t.settingsColWidth).setDesc(t.settingsColWidthDesc).addSlider((slider) => slider.setLimits(150, 450, 10).setValue(this.plugin.settings.collectionColumnMinWidth).onChange(async (value) => {
       this.plugin.settings.collectionColumnMinWidth = value;
       await this.plugin.saveSettings();
     }));
+  }
+  // For Obsidian 1.13.0+ settings search
+  getSettingDefinitions() {
+    return [
+      {
+        settingId: "apiUrl",
+        display: {
+          type: "text",
+          name: t.settingsApiUrl,
+          description: t.settingsApiUrlDesc
+        },
+        defaultValue: DEFAULT_SETTINGS.apiUrl,
+        onChange: async (value) => {
+          this.plugin.settings.apiUrl = cleanApiUrl(value);
+          await this.plugin.saveSettings();
+        }
+      },
+      {
+        settingId: "resultLimit",
+        display: {
+          type: "slider",
+          name: t.settingsResultLimit,
+          description: t.settingsResultLimitDesc
+        },
+        defaultValue: DEFAULT_SETTINGS.resultLimit,
+        min: 10,
+        max: 100,
+        step: 10,
+        onChange: async (value) => {
+          this.plugin.settings.resultLimit = value;
+          await this.plugin.saveSettings();
+        }
+      },
+      {
+        settingId: "collectionColumnMinWidth",
+        display: {
+          type: "slider",
+          name: t.settingsColWidth,
+          description: t.settingsColWidthDesc
+        },
+        defaultValue: DEFAULT_SETTINGS.collectionColumnMinWidth,
+        min: 150,
+        max: 450,
+        step: 10,
+        onChange: async (value) => {
+          this.plugin.settings.collectionColumnMinWidth = value;
+          await this.plugin.saveSettings();
+        }
+      }
+    ];
   }
 };
