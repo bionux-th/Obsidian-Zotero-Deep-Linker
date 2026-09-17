@@ -1,8 +1,12 @@
 # Zotero Deep Linker for Obsidian
 
+[中文版](README_zh.md) | English
+
 An Obsidian desktop plugin that searches the local Zotero library and inserts
 Markdown links to a bibliographic item, a PDF attachment, or one specific PDF
 annotation.
+
+![Screenshot](images/screenshot.png)
 
 ## Use
 

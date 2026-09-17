@@ -1,6 +1,10 @@
 # Zotero Deep Linker for Obsidian（中文）
 
+[English](README.md) | 中文版
+
 一个 Obsidian 桌面端插件，搜索本地 Zotero 库并插入文献条目、PDF 附件或某条具体 PDF 注释的 Markdown 深链接。
+
+![截图](images/screenshot.png)
 
 ## 使用方法
 
