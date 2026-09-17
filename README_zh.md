@@ -52,4 +52,4 @@ npm run build
 
 ## 许可证
 
-GPL-3.0
+MIT
