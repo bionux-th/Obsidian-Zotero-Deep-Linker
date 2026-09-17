@@ -1,0 +1,9 @@
+{
+  "id": "zotero-deep-linker",
+  "name": "Zotero Deep Linker",
+  "version": "0.1.0",
+  "minAppVersion": "1.8.0",
+  "description": "Visually search Zotero and insert links to items, PDFs, and annotations.",
+  "author": "Local",
+  "isDesktopOnly": true
+}
