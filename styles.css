@@ -17,6 +17,24 @@
   font-size: 0.95em;
 }
 
+.zotero-deep-linker-row-head {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.zotero-deep-linker-row-icon {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  flex-shrink: 0;
+}
+
+.zotero-deep-linker-row-icon svg {
+  height: 14px;
+  width: 14px;
+}
+
 .zotero-deep-linker-library-items .zotero-deep-linker-row > div {
   margin-top: 2px;
 }
@@ -40,7 +58,7 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: 6px;
   display: grid;
-grid-template-columns: var(--zotero-collection-column-min-width, 150px) minmax(0, 1fr);
+  grid-template-columns: var(--zotero-collection-column-min-width, 150px) minmax(0, 1fr);
   height: min(52vh, 420px);
   overflow: hidden;
 }

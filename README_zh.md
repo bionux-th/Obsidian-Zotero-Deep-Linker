@@ -10,15 +10,19 @@
 
 1. 保持 Zotero 运行，并启用 **设置 → 高级 → API → 启用本地 API**（默认端口 **23119**，即 `http://127.0.0.1:23119`）。
 2. 在 Obsidian Markdown 笔记中，从命令面板运行 **Zotero Deep Linker: 添加 Zotero 深链接**，或点击侧边栏链式图标。
-3. 按标题、作者、DOI 或关键词搜索，或在左侧收藏夹树中直接浏览。两种方式在同一窗口均可使用。
-4. 选择 **文献条目**，或选择 **PDF** 再进一步选择具体 **注释**。
+3. 按标题、作者、DOI 或关键词搜索，或在左侧收藏夹树中直接浏览。两种方式在同一窗口均可使用。不属于任何条目的独立 PDF 与独立笔记也会出现在列表中，并带有各自的图标，不会被误认成文献条目。
+4. 选择 **文献条目**、**PDF / 注释** 或 **笔记**。选项下方的小字会显示该条目下 PDF、注释、笔记的数量；独立 PDF 则直接进入自身的 PDF / 注释选择。
+
+链接显示文字默认为条目名称；注释为「名称（第 X 页）」，笔记为「名称 - 笔记 N」（独立笔记没有父条目，直接用其正文开头）。
+若在运行命令（或点击侧边栏图标）**之前**在编辑器中选中了文本，则用该选中文本作为链接文字。
 
 插入的链接形式如下：
 
 ```markdown
-[Zotero 条目](zotero://select/library/items/ITEM_KEY)
-[打开 PDF](zotero://open-pdf/library/items/PDF_KEY)
-[定位到 PDF 注释](zotero://open-pdf/library/items/PDF_KEY?page=PAGE&annotation=ANNOTATION_KEY)
+[条目名称](zotero://select/library/items/ITEM_KEY)
+[条目名称](zotero://open-pdf/library/items/PDF_KEY)
+[条目名称（第 X 页）](zotero://open-pdf/library/items/PDF_KEY?page=PAGE&annotation=ANNOTATION_KEY)
+[条目名称 - 笔记 1](zotero://select/library/items/NOTE_KEY)
 ```
 
 插件**不会修改** Zotero 条目、PDF 或注释，仅读取本地 API 并将链接插入当前 Obsidian 编辑器。

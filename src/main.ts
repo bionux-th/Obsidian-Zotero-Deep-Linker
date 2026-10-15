@@ -6,9 +6,12 @@ import {
   Plugin,
   PluginSettingTab,
   Setting,
+  setIcon,
   TextComponent,
 } from "obsidian";
+import type { Editor, SettingDefinitionItem } from "obsidian";
 import { get as httpGet } from "http";
+import { get as httpsGet } from "https";
 
 /**
  * Zotero Deep Linker for Obsidian
@@ -53,6 +56,22 @@ const I18N = {
     pageUnknown: "未记录页码",
     annotationTypeFallback: "注释",
     annotationNoText: "无文字内容（可能是图片或笔迹注释）",
+    pdfFallback: "PDF 附件",
+    annotationLinkText: "{title}（{page}）",
+    choiceNote: "笔记",
+    choiceNoteDesc: "链接到该条目的子笔记。",
+    noteTitle: "选择笔记",
+    noteLoading: "正在读取 Zotero 笔记…",
+    noteNone: "此条目暂无子笔记。",
+    noteLinkText: "{title} - 笔记 {index}",
+    typePdf: "PDF 附件",
+    typeNote: "笔记",
+    typeAttachment: "附件",
+    choicePdfCounts: "{pdfs} 个 PDF · {annotations} 条注释",
+    choiceNoteCounts: "{notes} 条子笔记",
+    choicePdfSelf: "PDF / 注释",
+    choicePdfSelfDesc: "打开该 PDF，或定位到某条注释。",
+    noteEmpty: "（空白笔记）",
     noticeInserted: "已插入 Zotero 链接。",
     noticeOpenMarkdown: "请先打开一个 Markdown 笔记，以便插入链接。",
     errorConnect: "无法连接 Zotero Local API（{detail}）。请确认 Zotero 正在运行并已启用本地 API。",
@@ -103,6 +122,22 @@ const I18N = {
     pageUnknown: "Page unknown",
     annotationTypeFallback: "Annotation",
     annotationNoText: "No text content (may be image or ink annotation)",
+    pdfFallback: "PDF Attachment",
+    annotationLinkText: "{title} ({page})",
+    choiceNote: "Note",
+    choiceNoteDesc: "Link to a child note of this item.",
+    noteTitle: "Choose Note",
+    noteLoading: "Loading Zotero notes…",
+    noteNone: "This item has no child notes.",
+    noteLinkText: "{title} - Note {index}",
+    typePdf: "PDF attachment",
+    typeNote: "Note",
+    typeAttachment: "Attachment",
+    choicePdfCounts: "{pdfs} PDF · {annotations} annotations",
+    choiceNoteCounts: "{notes} notes",
+    choicePdfSelf: "PDF / Annotation",
+    choicePdfSelfDesc: "Open this PDF or locate a specific annotation.",
+    noteEmpty: "(empty note)",
     noticeInserted: "Zotero link inserted.",
     noticeOpenMarkdown: "Please open a Markdown note first to insert the link.",
     errorConnect: "Cannot connect to Zotero Local API ({detail}). Make sure Zotero is running with Local API enabled.",
@@ -121,23 +156,25 @@ const I18N = {
 };
 
 function getLocaleSafe(app: App): "zh" | "en" {
-  // Try to get locale from app, fallback to navigator.language
-  const vaultConfig = app.vault?.getConfig?.("locale");
+  // `Vault.getConfig` is a real (but untyped) Obsidian API; localStorage
+  // `language` is the value Obsidian writes for its own UI language.
+  const vault = app.vault as unknown as { getConfig?: (key: string) => unknown };
+  const vaultConfig = vault.getConfig?.("locale");
+  const storedLang = typeof window !== "undefined" ? window.localStorage?.getItem("language") : undefined;
   const navLang = (typeof window !== "undefined" ? window.navigator?.language : undefined);
-  const locale = vaultConfig ?? navLang ?? "en";
-  return locale.startsWith("zh") ? "zh" : "en";
+  const locale = vaultConfig ?? storedLang ?? navLang ?? "en";
+  return String(locale).startsWith("zh") ? "zh" : "en";
 }
 
 let t = I18N.en;
 
 function tr(template: string, vars?: Record<string, string>): string {
-  let s = template;
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) {
-      s = s.replace(new RegExp(`\\{${k}\\}`, "g"), v);
-    }
-  }
-  return s;
+  if (!vars) return template;
+  // Function replacement avoids `$&`-style special patterns in values and any
+  // regex characters leaking out of the placeholder name.
+  return template.replace(/\{(\w+)\}/g, (match, key: string) =>
+    Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match,
+  );
 }
 
 interface ZoteroLinkerSettings {
@@ -160,6 +197,7 @@ interface ZoteroData {
   annotationPageLabel?: string;
   annotationText?: string;
   annotationComment?: string;
+  note?: string;
 }
 
 interface ZoteroItem {
@@ -177,6 +215,12 @@ interface ZoteroCollection {
   data: ZoteroCollectionData;
 }
 
+/**
+ * Receives a resolved link label and its target URL. The install site decides
+ * the final Markdown (e.g. substituting the editor's current selection).
+ */
+type InsertLinkFn = (label: string, url: string) => void;
+
 const DEFAULT_SETTINGS: ZoteroLinkerSettings = {
   apiUrl: "http://127.0.0.1:23119",
   resultLimit: 30,
@@ -191,7 +235,7 @@ function cleanApiUrl(url: string): string {
 
 async function getLocalJson(url: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
-    const request = httpGet(url, (response: import("http").IncomingMessage) => {
+    const onResponse = (response: import("http").IncomingMessage): void => {
       let body = "";
       response.setEncoding("utf8");
       response.on("data", (chunk: string) => { body += chunk; });
@@ -208,7 +252,12 @@ async function getLocalJson(url: string): Promise<unknown> {
           reject(new Error(tr(t.errorJson)));
         }
       });
-    });
+    };
+    // Support an https Zotero address (e.g. a remote instance) as well as the
+    // usual http://127.0.0.1:23119.
+    const request = url.startsWith("https:")
+      ? httpsGet(url, onResponse)
+      : httpGet(url, onResponse);
     request.setTimeout(5_000, () => request.destroy(new Error(tr(t.errorTimeout))));
     request.on("error", reject);
   });
@@ -217,6 +266,77 @@ async function getLocalJson(url: string): Promise<unknown> {
 function textPreview(value: string | undefined, limit = 100): string {
   const compact = (value ?? "").replace(/\s+/g, " ").trim();
   return compact.length > limit ? `${compact.slice(0, limit)}…` : compact;
+}
+
+/** Zotero stores note bodies as HTML; reduce one to readable plain text. */
+function htmlToText(html: string | undefined): string {
+  return (html ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#0?39;/g, "'");
+}
+
+/** Zotero title/filename fields may contain inline HTML (e.g. `<i>`). */
+function cleanTitle(value: string | undefined): string {
+  return htmlToText(value).replace(/\s+/g, " ").trim();
+}
+
+/** Note items carry no title; derive one from the note body. */
+function notePreviewText(data: ZoteroData, limit = 80): string {
+  return textPreview(htmlToText(data.note), limit);
+}
+
+type EntryKind = "item" | "pdf" | "note" | "attachment";
+
+function isPdfAttachment(data: ZoteroData): boolean {
+  return data.itemType === "attachment" && /pdf/i.test(data.filename ?? data.title ?? "");
+}
+
+function entryKind(data: ZoteroData): EntryKind {
+  if (data.itemType === "note") return "note";
+  if (data.itemType === "attachment") return isPdfAttachment(data) ? "pdf" : "attachment";
+  return "item";
+}
+
+/** Lucide icons used in the result list so PDFs/notes are told apart at a glance. */
+const ROW_ICONS: Record<EntryKind, string> = {
+  item: "book-open",
+  pdf: "file-text",
+  note: "sticky-note",
+  attachment: "paperclip",
+};
+
+/** Default link text for an entry: its title, a filename, or a note preview. */
+function itemTitle(data: ZoteroData): string {
+  switch (entryKind(data)) {
+    case "note":
+      return notePreviewText(data) || t.noteEmpty;
+    case "item":
+      return cleanTitle(data.title) || t.untitledItem;
+    case "pdf":
+      return cleanTitle(data.filename) || cleanTitle(data.title) || t.pdfFallback;
+    default:
+      return cleanTitle(data.filename) || cleanTitle(data.title) || t.typeAttachment;
+  }
+}
+
+/**
+ * Only top-level entries are listable: regular items plus standalone notes and
+ * attachments. Child items and annotations are reached through their parent's
+ * link targets instead.
+ */
+function isListableEntry(data: ZoteroData): boolean {
+  return !data.parentItem && data.itemType !== "annotation";
+}
+
+/** Build the Markdown link. A blank/whitespace label falls back to the URL. */
+function markdownLink(label: string, url: string): string {
+  const text = label.replace(/\s+/g, " ").trim() || url;
+  return `[${text}](${url})`;
 }
 
 function pageLabel(data: ZoteroData): string {
@@ -235,7 +355,7 @@ export default class ZoteroDeepLinkerPlugin extends Plugin {
     this.addCommand({
       id: "insert-zotero-deep-link",
       name: t.commandName,
-      editorCallback: (editor) => new ZoteroSearchModal(this.app, this, (markdown) => editor.replaceSelection(markdown)).open(),
+      editorCallback: (editor) => this.openSearch(editor),
     });
     this.addRibbonIcon("link", t.ribbonTooltip, () => {
       const view = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -243,8 +363,20 @@ export default class ZoteroDeepLinkerPlugin extends Plugin {
         new Notice(t.noticeOpenMarkdown);
         return;
       }
-      new ZoteroSearchModal(this.app, this, (markdown) => view.editor.replaceSelection(markdown)).open();
+      this.openSearch(view.editor);
     });
+  }
+
+  /**
+   * Opens the picker and inserts the chosen link at the cursor. Text selected
+   * before opening the picker becomes the link's display text, overriding the
+   * default label.
+   */
+  private openSearch(editor: Editor): void {
+    const selection = editor.getSelection().replace(/\s+/g, " ").trim();
+    new ZoteroSearchModal(this.app, this, (label, url) => {
+      editor.replaceSelection(markdownLink(selection || label, url));
+    }).open();
   }
 
   async saveSettings(): Promise<void> {
@@ -270,50 +402,83 @@ export default class ZoteroDeepLinkerPlugin extends Plugin {
     }
   }
 
+  /** Walk every page of a list endpoint instead of silently truncating at 100. */
+  private async getAllRecords<T>(path: string, params: Record<string, string> = {}): Promise<T[]> {
+    const pageSize = 100;
+    const all: T[] = [];
+    for (let start = 0; ; start += pageSize) {
+      const page = await this.getRecords<T>(path, { ...params, limit: String(pageSize), start: String(start) });
+      all.push(...page);
+      if (page.length < pageSize) break;
+    }
+    return all;
+  }
+
   async search(query: string): Promise<ZoteroItem[]> {
     const items = await this.getItems("/api/users/0/items", {
       q: query,
       limit: String(this.settings.resultLimit),
     });
-    return items.filter((item) => !["attachment", "note", "annotation"].includes(item.data.itemType ?? ""));
+    return items.filter((item) => isListableEntry(item.data));
   }
 
   async getCollections(): Promise<ZoteroCollection[]> {
-    return this.getRecords<ZoteroCollection>("/api/users/0/collections", { limit: "100" });
+    return this.getAllRecords<ZoteroCollection>("/api/users/0/collections");
   }
 
   async getBrowseItems(collectionKey?: string): Promise<ZoteroItem[]> {
     const path = collectionKey
       ? `/api/users/0/collections/${encodeURIComponent(collectionKey)}/items/top`
       : "/api/users/0/items/top";
-    const pageSize = 100;
-    const allItems: ZoteroItem[] = [];
-    for (let start = 0; ; start += pageSize) {
-      const page = await this.getItems(path, {
-        limit: String(pageSize),
-        start: String(start),
-        sort: "title",
-        direction: "asc",
-      });
-      allItems.push(...page);
-      if (page.length < pageSize) break;
-    }
-    return allItems.filter((item) => !["attachment", "note", "annotation"].includes(item.data.itemType ?? ""));
+    const items = await this.getAllRecords<ZoteroItem>(path, { sort: "title", direction: "asc" });
+    return items.filter((item) => isListableEntry(item.data));
   }
 
   async getAttachments(itemKey: string): Promise<ZoteroItem[]> {
-    const children = await this.getItems(`/api/users/0/items/${itemKey}/children`, { limit: "100" });
-    return children.filter((item) => item.data.itemType === "attachment" && /pdf/i.test(item.data.filename ?? item.data.title ?? ""));
+    const children = await this.getAllRecords<ZoteroItem>(`/api/users/0/items/${encodeURIComponent(itemKey)}/children`);
+    return children.filter((item) => isPdfAttachment(item.data));
+  }
+
+  /**
+   * Counts shown under the picker's choices. A single `?itemKey=` query
+   * returns the whole subtree: the item itself, its attachments and notes, and
+   * the annotations nested under those attachments.
+   */
+  async getChildSummary(itemKey: string): Promise<{ pdfs: number; annotations: number; notes: number }> {
+    const items = await this.getAllRecords<ZoteroItem>("/api/users/0/items", { itemKey });
+    const summary = { pdfs: 0, annotations: 0, notes: 0 };
+    for (const item of items) {
+      switch (item.data.itemType) {
+        case "annotation":
+          summary.annotations++;
+          break;
+        case "note":
+          summary.notes++;
+          break;
+        default:
+          if (isPdfAttachment(item.data)) summary.pdfs++;
+          break;
+      }
+    }
+    return summary;
   }
 
   async getAnnotations(pdfKey: string): Promise<ZoteroItem[]> {
-    const items = await this.getItems("/api/users/0/items", { itemKey: pdfKey, limit: "100" });
+    // The local API does not expose annotations through `/items/{key}/children`,
+    // but `?itemKey=` returns the item together with its child annotations.
+    const items = await this.getAllRecords<ZoteroItem>("/api/users/0/items", { itemKey: pdfKey });
     return items.filter((item) => item.data.itemType === "annotation" && item.data.parentItem === pdfKey);
   }
 
-  insert(callback: (markdown: string) => void, markdown: string): void {
-    callback(markdown);
-    new Notice("已插入 Zotero 链接。");
+  async getNotes(itemKey: string): Promise<ZoteroItem[]> {
+    // Note items have no `title`; their body lives in `data.note` as HTML.
+    const children = await this.getAllRecords<ZoteroItem>(`/api/users/0/items/${encodeURIComponent(itemKey)}/children`);
+    return children.filter((item) => item.data.itemType === "note");
+  }
+
+  insert(insert: InsertLinkFn, label: string, url: string): void {
+    insert(label, url);
+    new Notice(t.noticeInserted);
   }
 }
 
@@ -328,7 +493,7 @@ class ZoteroSearchModal extends Modal {
   constructor(
     app: App,
     private readonly plugin: ZoteroDeepLinkerPlugin,
-    private readonly insert: (markdown: string) => void,
+    private readonly insert: InsertLinkFn,
   ) {
     super(app);
   }
@@ -428,49 +593,104 @@ class ZoteroSearchModal extends Modal {
   }
 
   private addItemRow(container: HTMLElement, item: ZoteroItem): void {
+    const kind = entryKind(item.data);
     const row = container.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
-    row.createEl("strong", { text: item.data.title || t.untitledItem });
-    row.createDiv({ text: [item.data.firstCreator, item.data.date, item.data.publicationTitle].filter(Boolean).join(" · ") });
-    row.addEventListener("click", () => {
-      this.close();
-      new ZoteroTargetModal(this.app, this.plugin, item, this.insert).open();
-    });
+    // A <span> wrapper keeps this out of the `.row > div` meta styling.
+    const head = row.createSpan({ cls: "zotero-deep-linker-row-head" });
+    const icon = head.createSpan({ cls: "zotero-deep-linker-row-icon" });
+    setIcon(icon, ROW_ICONS[kind]);
+    if (kind !== "item") {
+      const typeLabel = kind === "note" ? t.typeNote : kind === "pdf" ? t.typePdf : t.typeAttachment;
+      icon.setAttribute("aria-label", typeLabel);
+      icon.setAttribute("title", typeLabel);
+    }
+    head.createEl("strong", { text: itemTitle(item.data) });
+    row.createDiv({ text: this.metaLine(item.data, kind) });
+    row.addEventListener("click", () => this.openTarget(item, kind));
+  }
+
+  private metaLine(data: ZoteroData, kind: EntryKind): string {
+    switch (kind) {
+      case "note": return t.typeNote;
+      case "pdf": return t.typePdf;
+      case "attachment": return t.typeAttachment;
+      default: return [data.firstCreator, data.date, data.publicationTitle].filter(Boolean).join(" · ");
+    }
+  }
+
+  private openTarget(item: ZoteroItem, kind: EntryKind): void {
+    this.close();
+    // A standalone note has nothing to drill into, so link it straight away.
+    if (kind === "note") {
+      this.plugin.insert(this.insert, itemTitle(item.data), `zotero://select/library/items/${item.key}`);
+      return;
+    }
+    new ZoteroTargetModal(this.app, this.plugin, item, this.insert).open();
   }
 }
 
 class ZoteroTargetModal extends Modal {
+  private pdfDescEl?: HTMLElement;
+  private noteDescEl?: HTMLElement;
+
   constructor(
     app: App,
     private readonly plugin: ZoteroDeepLinkerPlugin,
     private readonly item: ZoteroItem,
-    private readonly insert: (markdown: string) => void,
+    private readonly insert: InsertLinkFn,
   ) {
     super(app);
   }
 
   onOpen(): void {
     this.titleEl.setText(t.chooseTargetTitle);
-    this.contentEl.createEl("h3", { text: this.item.data.title || t.untitledItem });
-    this.addChoice(t.choiceItem, t.choiceItemDesc, () => {
-      this.plugin.insert(this.insert, `[${this.item.data.title || "Zotero Item"}](zotero://select/library/items/${this.item.key})`);
-      this.close();
-    });
-    this.addChoice(t.choicePdf, t.choicePdfDesc, () => void this.choosePdf());
+    this.contentEl.createEl("h3", { text: itemTitle(this.item.data) });
+
+    // A standalone attachment has no parent item to select, so it offers its
+    // own PDF/annotation targets instead of an "Item" choice.
+    if (this.item.data.itemType !== "attachment") {
+      this.addChoice(t.choiceItem, t.choiceItemDesc, () => {
+        this.plugin.insert(this.insert, itemTitle(this.item.data), `zotero://select/library/items/${this.item.key}`);
+        this.close();
+      });
+    }
+    const pdfChoice = this.item.data.itemType === "attachment"
+      ? { name: t.choicePdfSelf, desc: t.choicePdfSelfDesc }
+      : { name: t.choicePdf, desc: t.choicePdfDesc };
+    this.pdfDescEl = this.addChoice(pdfChoice.name, pdfChoice.desc, () => void this.choosePdf());
+    this.noteDescEl = this.addChoice(t.choiceNote, t.choiceNoteDesc, () => void this.chooseNote());
+    void this.loadCounts();
   }
 
-  private addChoice(name: string, description: string, action: () => void): void {
+  /** Replaces the choice subtitles with live subtree counts once they load. */
+  private async loadCounts(): Promise<void> {
+    try {
+      const summary = await this.plugin.getChildSummary(this.item.key);
+      this.pdfDescEl?.setText(tr(t.choicePdfCounts, {
+        pdfs: String(summary.pdfs),
+        annotations: String(summary.annotations),
+      }));
+      this.noteDescEl?.setText(tr(t.choiceNoteCounts, { notes: String(summary.notes) }));
+    } catch {
+      // Keep the descriptive fallback text when the API is unreachable.
+    }
+  }
+
+  private addChoice(name: string, description: string, action: () => void): HTMLElement {
     const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
     row.createEl("strong", { text: name });
-    row.createDiv({ text: description });
+    const desc = row.createDiv({ text: description });
     row.addEventListener("click", action);
+    return desc;
   }
 
   private async choosePdf(): Promise<void> {
+    const selfIsAttachment = this.item.data.itemType === "attachment";
     this.contentEl.empty();
     this.contentEl.createEl("h3", { text: t.pdfTitle });
     this.contentEl.createDiv({ text: t.pdfLoading });
     try {
-      const attachments = await this.plugin.getAttachments(this.item.key);
+      const attachments = selfIsAttachment ? [this.item] : await this.plugin.getAttachments(this.item.key);
       this.contentEl.empty();
       this.contentEl.createEl("h3", { text: t.pdfTitle });
       if (!attachments.length) {
@@ -479,13 +699,17 @@ class ZoteroTargetModal extends Modal {
       }
       for (const attachment of attachments) {
         const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
-        row.createEl("strong", { text: attachment.data.filename || "PDF 附件" });
+        row.createEl("strong", { text: cleanTitle(attachment.data.filename) || itemTitle(attachment.data) });
         row.createDiv({ text: t.pdfHint });
         const buttons = row.createDiv({ cls: "zotero-deep-linker-actions" });
         const open = buttons.createEl("button", { text: t.pdfOpenBtn });
         open.addEventListener("click", (event) => {
           event.stopPropagation();
-          this.plugin.insert(this.insert, `[${t.pdfOpenBtn.replace("Insert ", "").replace("插入 ", "")}：${attachment.data.filename || this.item.data.title || "Zotero"}](zotero://open-pdf/library/items/${attachment.key})`);
+          // Default display text is the entry's title, per the plugin's convention.
+          const label = selfIsAttachment
+            ? itemTitle(attachment.data)
+            : cleanTitle(this.item.data.title) || cleanTitle(attachment.data.filename) || t.pdfFallback;
+          this.plugin.insert(this.insert, label, `zotero://open-pdf/library/items/${attachment.key}`);
           this.close();
         });
         const annotations = buttons.createEl("button", { text: t.pdfAnnoBtn });
@@ -518,11 +742,43 @@ class ZoteroTargetModal extends Modal {
         row.createEl("strong", { text: `${pageLabel(data)} · ${typeLabel}` });
         row.createDiv({ text: textPreview(data.annotationComment) || textPreview(data.annotationText) || t.annotationNoText });
         row.addEventListener("click", () => {
-          const label = `Zotero ${typeLabel}：${pageLabel(data)}`;
-          this.plugin.insert(this.insert, `[${label}](zotero://open-pdf/library/items/${pdf.key}?page=${encodeURIComponent(data.annotationPageLabel || "")}&annotation=${annotation.key})`);
+          const title = itemTitle(this.item.data);
+          const label = data.annotationPageLabel ? tr(t.annotationLinkText, { title, page: pageLabel(data) }) : title;
+          const params = new URLSearchParams({ annotation: annotation.key });
+          if (data.annotationPageLabel) params.set("page", data.annotationPageLabel);
+          this.plugin.insert(this.insert, label, `zotero://open-pdf/library/items/${pdf.key}?${params.toString()}`);
           this.close();
         });
       }
+    } catch (error) {
+      this.contentEl.setText(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  private async chooseNote(): Promise<void> {
+    this.contentEl.empty();
+    this.contentEl.createEl("h3", { text: t.noteTitle });
+    this.contentEl.createDiv({ text: t.noteLoading });
+    try {
+      const notes = await this.plugin.getNotes(this.item.key);
+      this.contentEl.empty();
+      this.contentEl.createEl("h3", { text: t.noteTitle });
+      if (!notes.length) {
+        this.contentEl.createDiv({ text: t.noteNone });
+        return;
+      }
+      // Note items carry no title; label them by parent title + running index.
+      const title = itemTitle(this.item.data);
+      notes.forEach((note, index) => {
+        const label = tr(t.noteLinkText, { title, index: String(index + 1) });
+        const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
+        row.createEl("strong", { text: label });
+        row.createDiv({ text: notePreviewText(note.data, 140) || t.noteEmpty });
+        row.addEventListener("click", () => {
+          this.plugin.insert(this.insert, label, `zotero://select/library/items/${note.key}`);
+          this.close();
+        });
+      });
     } catch (error) {
       this.contentEl.setText(error instanceof Error ? error.message : String(error));
     }
@@ -560,54 +816,64 @@ class ZoteroLinkerSettingTab extends PluginSettingTab {
       }));
   }
 
-  // For Obsidian 1.13.0+ settings search
-  getSettingDefinitions(): import("obsidian").SettingTabDefinition[] {
+  // Obsidian 1.13.0+ renders this tab declaratively (and indexes it for the
+  // settings search) when this returns a NON-EMPTY array, in which case the
+  // deprecated display() above is skipped entirely. Returning an empty array
+  // keeps display() as the renderer on older versions.
+  getSettingDefinitions(): SettingDefinitionItem[] {
     return [
       {
-        settingId: "apiUrl",
-        display: {
-          type: "text",
-          name: t.settingsApiUrl,
-          description: t.settingsApiUrlDesc,
-        },
-        defaultValue: DEFAULT_SETTINGS.apiUrl,
-        onChange: async (value: string) => {
-          this.plugin.settings.apiUrl = cleanApiUrl(value);
-          await this.plugin.saveSettings();
-        },
-      },
-      {
-        settingId: "resultLimit",
-        display: {
-          type: "slider",
-          name: t.settingsResultLimit,
-          description: t.settingsResultLimitDesc,
-        },
-        defaultValue: DEFAULT_SETTINGS.resultLimit,
-        min: 10,
-        max: 100,
-        step: 10,
-        onChange: async (value: number) => {
-          this.plugin.settings.resultLimit = value;
-          await this.plugin.saveSettings();
-        },
-      },
-      {
-        settingId: "collectionColumnMinWidth",
-        display: {
-          type: "slider",
-          name: t.settingsColWidth,
-          description: t.settingsColWidthDesc,
-        },
-        defaultValue: DEFAULT_SETTINGS.collectionColumnMinWidth,
-        min: 150,
-        max: 450,
-        step: 10,
-        onChange: async (value: number) => {
-          this.plugin.settings.collectionColumnMinWidth = value;
-          await this.plugin.saveSettings();
-        },
+        type: "group",
+        heading: t.settingsTitle,
+        items: [
+          {
+            name: t.settingsApiUrl,
+            desc: t.settingsApiUrlDesc,
+            control: {
+              type: "text",
+              key: "apiUrl",
+              defaultValue: DEFAULT_SETTINGS.apiUrl,
+              placeholder: DEFAULT_SETTINGS.apiUrl,
+            },
+          },
+          {
+            name: t.settingsResultLimit,
+            desc: t.settingsResultLimitDesc,
+            control: {
+              type: "slider",
+              key: "resultLimit",
+              min: 10,
+              max: 100,
+              step: 10,
+              defaultValue: DEFAULT_SETTINGS.resultLimit,
+            },
+          },
+          {
+            name: t.settingsColWidth,
+            desc: t.settingsColWidthDesc,
+            control: {
+              type: "slider",
+              key: "collectionColumnMinWidth",
+              min: 150,
+              max: 450,
+              step: 10,
+              defaultValue: DEFAULT_SETTINGS.collectionColumnMinWidth,
+            },
+          },
+        ],
       },
     ];
+  }
+
+  // The declarative controls read/write through these hooks. Point them at the
+  // plugin's own settings store and keep the API URL normalized on write.
+  getControlValue(key: string): unknown {
+    return (this.plugin.settings as unknown as Record<string, unknown>)[key];
+  }
+
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    const next = key === "apiUrl" && typeof value === "string" ? cleanApiUrl(value) : value;
+    (this.plugin.settings as unknown as Record<string, unknown>)[key] = next;
+    await this.plugin.saveSettings();
   }
 }

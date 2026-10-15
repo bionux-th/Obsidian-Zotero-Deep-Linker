@@ -27,6 +27,7 @@ __export(main_exports, {
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
 var import_http = require("http");
+var import_https = require("https");
 var I18N = {
   zh: {
     commandName: "\u6DFB\u52A0 Zotero \u6DF1\u94FE\u63A5",
@@ -63,6 +64,22 @@ var I18N = {
     pageUnknown: "\u672A\u8BB0\u5F55\u9875\u7801",
     annotationTypeFallback: "\u6CE8\u91CA",
     annotationNoText: "\u65E0\u6587\u5B57\u5185\u5BB9\uFF08\u53EF\u80FD\u662F\u56FE\u7247\u6216\u7B14\u8FF9\u6CE8\u91CA\uFF09",
+    pdfFallback: "PDF \u9644\u4EF6",
+    annotationLinkText: "{title}\uFF08{page}\uFF09",
+    choiceNote: "\u7B14\u8BB0",
+    choiceNoteDesc: "\u94FE\u63A5\u5230\u8BE5\u6761\u76EE\u7684\u5B50\u7B14\u8BB0\u3002",
+    noteTitle: "\u9009\u62E9\u7B14\u8BB0",
+    noteLoading: "\u6B63\u5728\u8BFB\u53D6 Zotero \u7B14\u8BB0\u2026",
+    noteNone: "\u6B64\u6761\u76EE\u6682\u65E0\u5B50\u7B14\u8BB0\u3002",
+    noteLinkText: "{title} - \u7B14\u8BB0 {index}",
+    typePdf: "PDF \u9644\u4EF6",
+    typeNote: "\u7B14\u8BB0",
+    typeAttachment: "\u9644\u4EF6",
+    choicePdfCounts: "{pdfs} \u4E2A PDF \xB7 {annotations} \u6761\u6CE8\u91CA",
+    choiceNoteCounts: "{notes} \u6761\u5B50\u7B14\u8BB0",
+    choicePdfSelf: "PDF / \u6CE8\u91CA",
+    choicePdfSelfDesc: "\u6253\u5F00\u8BE5 PDF\uFF0C\u6216\u5B9A\u4F4D\u5230\u67D0\u6761\u6CE8\u91CA\u3002",
+    noteEmpty: "\uFF08\u7A7A\u767D\u7B14\u8BB0\uFF09",
     noticeInserted: "\u5DF2\u63D2\u5165 Zotero \u94FE\u63A5\u3002",
     noticeOpenMarkdown: "\u8BF7\u5148\u6253\u5F00\u4E00\u4E2A Markdown \u7B14\u8BB0\uFF0C\u4EE5\u4FBF\u63D2\u5165\u94FE\u63A5\u3002",
     errorConnect: "\u65E0\u6CD5\u8FDE\u63A5 Zotero Local API\uFF08{detail}\uFF09\u3002\u8BF7\u786E\u8BA4 Zotero \u6B63\u5728\u8FD0\u884C\u5E76\u5DF2\u542F\u7528\u672C\u5730 API\u3002",
@@ -113,6 +130,22 @@ var I18N = {
     pageUnknown: "Page unknown",
     annotationTypeFallback: "Annotation",
     annotationNoText: "No text content (may be image or ink annotation)",
+    pdfFallback: "PDF Attachment",
+    annotationLinkText: "{title} ({page})",
+    choiceNote: "Note",
+    choiceNoteDesc: "Link to a child note of this item.",
+    noteTitle: "Choose Note",
+    noteLoading: "Loading Zotero notes\u2026",
+    noteNone: "This item has no child notes.",
+    noteLinkText: "{title} - Note {index}",
+    typePdf: "PDF attachment",
+    typeNote: "Note",
+    typeAttachment: "Attachment",
+    choicePdfCounts: "{pdfs} PDF \xB7 {annotations} annotations",
+    choiceNoteCounts: "{notes} notes",
+    choicePdfSelf: "PDF / Annotation",
+    choicePdfSelfDesc: "Open this PDF or locate a specific annotation.",
+    noteEmpty: "(empty note)",
     noticeInserted: "Zotero link inserted.",
     noticeOpenMarkdown: "Please open a Markdown note first to insert the link.",
     errorConnect: "Cannot connect to Zotero Local API ({detail}). Make sure Zotero is running with Local API enabled.",
@@ -130,20 +163,20 @@ var I18N = {
   }
 };
 function getLocaleSafe(app) {
-  const vaultConfig = app.vault?.getConfig?.("locale");
+  const vault = app.vault;
+  const vaultConfig = vault.getConfig?.("locale");
+  const storedLang = typeof window !== "undefined" ? window.localStorage?.getItem("language") : void 0;
   const navLang = typeof window !== "undefined" ? window.navigator?.language : void 0;
-  const locale = vaultConfig ?? navLang ?? "en";
-  return locale.startsWith("zh") ? "zh" : "en";
+  const locale = vaultConfig ?? storedLang ?? navLang ?? "en";
+  return String(locale).startsWith("zh") ? "zh" : "en";
 }
 var t = I18N.en;
 function tr(template, vars) {
-  let s = template;
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) {
-      s = s.replace(new RegExp(`\\{${k}\\}`, "g"), v);
-    }
-  }
-  return s;
+  if (!vars) return template;
+  return template.replace(
+    /\{(\w+)\}/g,
+    (match, key) => Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match
+  );
 }
 var DEFAULT_SETTINGS = {
   apiUrl: "http://127.0.0.1:23119",
@@ -155,7 +188,7 @@ function cleanApiUrl(url) {
 }
 async function getLocalJson(url) {
   return new Promise((resolve, reject) => {
-    const request = (0, import_http.get)(url, (response) => {
+    const onResponse = (response) => {
       let body = "";
       response.setEncoding("utf8");
       response.on("data", (chunk) => {
@@ -174,7 +207,8 @@ async function getLocalJson(url) {
           reject(new Error(tr(t.errorJson)));
         }
       });
-    });
+    };
+    const request = url.startsWith("https:") ? (0, import_https.get)(url, onResponse) : (0, import_http.get)(url, onResponse);
     request.setTimeout(5e3, () => request.destroy(new Error(tr(t.errorTimeout))));
     request.on("error", reject);
   });
@@ -182,6 +216,48 @@ async function getLocalJson(url) {
 function textPreview(value, limit = 100) {
   const compact = (value ?? "").replace(/\s+/g, " ").trim();
   return compact.length > limit ? `${compact.slice(0, limit)}\u2026` : compact;
+}
+function htmlToText(html) {
+  return (html ?? "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&quot;/gi, '"').replace(/&#0?39;/g, "'");
+}
+function cleanTitle(value) {
+  return htmlToText(value).replace(/\s+/g, " ").trim();
+}
+function notePreviewText(data, limit = 80) {
+  return textPreview(htmlToText(data.note), limit);
+}
+function isPdfAttachment(data) {
+  return data.itemType === "attachment" && /pdf/i.test(data.filename ?? data.title ?? "");
+}
+function entryKind(data) {
+  if (data.itemType === "note") return "note";
+  if (data.itemType === "attachment") return isPdfAttachment(data) ? "pdf" : "attachment";
+  return "item";
+}
+var ROW_ICONS = {
+  item: "book-open",
+  pdf: "file-text",
+  note: "sticky-note",
+  attachment: "paperclip"
+};
+function itemTitle(data) {
+  switch (entryKind(data)) {
+    case "note":
+      return notePreviewText(data) || t.noteEmpty;
+    case "item":
+      return cleanTitle(data.title) || t.untitledItem;
+    case "pdf":
+      return cleanTitle(data.filename) || cleanTitle(data.title) || t.pdfFallback;
+    default:
+      return cleanTitle(data.filename) || cleanTitle(data.title) || t.typeAttachment;
+  }
+}
+function isListableEntry(data) {
+  return !data.parentItem && data.itemType !== "annotation";
+}
+function markdownLink(label, url) {
+  const text = label.replace(/\s+/g, " ").trim() || url;
+  return `[${text}](${url})`;
 }
 function pageLabel(data) {
   return data.annotationPageLabel ? `${t.pageLabelPrefix}${data.annotationPageLabel}${t.pageLabelSuffix}` : t.pageUnknown;
@@ -198,7 +274,7 @@ var ZoteroDeepLinkerPlugin = class extends import_obsidian.Plugin {
     this.addCommand({
       id: "insert-zotero-deep-link",
       name: t.commandName,
-      editorCallback: (editor) => new ZoteroSearchModal(this.app, this, (markdown) => editor.replaceSelection(markdown)).open()
+      editorCallback: (editor) => this.openSearch(editor)
     });
     this.addRibbonIcon("link", t.ribbonTooltip, () => {
       const view = this.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
@@ -206,8 +282,19 @@ var ZoteroDeepLinkerPlugin = class extends import_obsidian.Plugin {
         new import_obsidian.Notice(t.noticeOpenMarkdown);
         return;
       }
-      new ZoteroSearchModal(this.app, this, (markdown) => view.editor.replaceSelection(markdown)).open();
+      this.openSearch(view.editor);
     });
+  }
+  /**
+   * Opens the picker and inserts the chosen link at the cursor. Text selected
+   * before opening the picker becomes the link's display text, overriding the
+   * default label.
+   */
+  openSearch(editor) {
+    const selection = editor.getSelection().replace(/\s+/g, " ").trim();
+    new ZoteroSearchModal(this.app, this, (label, url) => {
+      editor.replaceSelection(markdownLink(selection || label, url));
+    }).open();
   }
   async saveSettings() {
     await this.saveData(this.settings);
@@ -229,43 +316,70 @@ var ZoteroDeepLinkerPlugin = class extends import_obsidian.Plugin {
       throw new Error(tr(t.errorConnect, { detail }));
     }
   }
+  /** Walk every page of a list endpoint instead of silently truncating at 100. */
+  async getAllRecords(path, params = {}) {
+    const pageSize = 100;
+    const all = [];
+    for (let start = 0; ; start += pageSize) {
+      const page = await this.getRecords(path, { ...params, limit: String(pageSize), start: String(start) });
+      all.push(...page);
+      if (page.length < pageSize) break;
+    }
+    return all;
+  }
   async search(query) {
     const items = await this.getItems("/api/users/0/items", {
       q: query,
       limit: String(this.settings.resultLimit)
     });
-    return items.filter((item) => !["attachment", "note", "annotation"].includes(item.data.itemType ?? ""));
+    return items.filter((item) => isListableEntry(item.data));
   }
   async getCollections() {
-    return this.getRecords("/api/users/0/collections", { limit: "100" });
+    return this.getAllRecords("/api/users/0/collections");
   }
   async getBrowseItems(collectionKey) {
     const path = collectionKey ? `/api/users/0/collections/${encodeURIComponent(collectionKey)}/items/top` : "/api/users/0/items/top";
-    const pageSize = 100;
-    const allItems = [];
-    for (let start = 0; ; start += pageSize) {
-      const page = await this.getItems(path, {
-        limit: String(pageSize),
-        start: String(start),
-        sort: "title",
-        direction: "asc"
-      });
-      allItems.push(...page);
-      if (page.length < pageSize) break;
-    }
-    return allItems.filter((item) => !["attachment", "note", "annotation"].includes(item.data.itemType ?? ""));
+    const items = await this.getAllRecords(path, { sort: "title", direction: "asc" });
+    return items.filter((item) => isListableEntry(item.data));
   }
   async getAttachments(itemKey) {
-    const children = await this.getItems(`/api/users/0/items/${itemKey}/children`, { limit: "100" });
-    return children.filter((item) => item.data.itemType === "attachment" && /pdf/i.test(item.data.filename ?? item.data.title ?? ""));
+    const children = await this.getAllRecords(`/api/users/0/items/${encodeURIComponent(itemKey)}/children`);
+    return children.filter((item) => isPdfAttachment(item.data));
+  }
+  /**
+   * Counts shown under the picker's choices. A single `?itemKey=` query
+   * returns the whole subtree: the item itself, its attachments and notes, and
+   * the annotations nested under those attachments.
+   */
+  async getChildSummary(itemKey) {
+    const items = await this.getAllRecords("/api/users/0/items", { itemKey });
+    const summary = { pdfs: 0, annotations: 0, notes: 0 };
+    for (const item of items) {
+      switch (item.data.itemType) {
+        case "annotation":
+          summary.annotations++;
+          break;
+        case "note":
+          summary.notes++;
+          break;
+        default:
+          if (isPdfAttachment(item.data)) summary.pdfs++;
+          break;
+      }
+    }
+    return summary;
   }
   async getAnnotations(pdfKey) {
-    const items = await this.getItems("/api/users/0/items", { itemKey: pdfKey, limit: "100" });
+    const items = await this.getAllRecords("/api/users/0/items", { itemKey: pdfKey });
     return items.filter((item) => item.data.itemType === "annotation" && item.data.parentItem === pdfKey);
   }
-  insert(callback, markdown) {
-    callback(markdown);
-    new import_obsidian.Notice("\u5DF2\u63D2\u5165 Zotero \u94FE\u63A5\u3002");
+  async getNotes(itemKey) {
+    const children = await this.getAllRecords(`/api/users/0/items/${encodeURIComponent(itemKey)}/children`);
+    return children.filter((item) => item.data.itemType === "note");
+  }
+  insert(insert, label, url) {
+    insert(label, url);
+    new import_obsidian.Notice(t.noticeInserted);
   }
 };
 var ZoteroSearchModal = class extends import_obsidian.Modal {
@@ -363,13 +477,39 @@ var ZoteroSearchModal = class extends import_obsidian.Modal {
     return row;
   }
   addItemRow(container, item) {
+    const kind = entryKind(item.data);
     const row = container.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
-    row.createEl("strong", { text: item.data.title || t.untitledItem });
-    row.createDiv({ text: [item.data.firstCreator, item.data.date, item.data.publicationTitle].filter(Boolean).join(" \xB7 ") });
-    row.addEventListener("click", () => {
-      this.close();
-      new ZoteroTargetModal(this.app, this.plugin, item, this.insert).open();
-    });
+    const head = row.createSpan({ cls: "zotero-deep-linker-row-head" });
+    const icon = head.createSpan({ cls: "zotero-deep-linker-row-icon" });
+    (0, import_obsidian.setIcon)(icon, ROW_ICONS[kind]);
+    if (kind !== "item") {
+      const typeLabel = kind === "note" ? t.typeNote : kind === "pdf" ? t.typePdf : t.typeAttachment;
+      icon.setAttribute("aria-label", typeLabel);
+      icon.setAttribute("title", typeLabel);
+    }
+    head.createEl("strong", { text: itemTitle(item.data) });
+    row.createDiv({ text: this.metaLine(item.data, kind) });
+    row.addEventListener("click", () => this.openTarget(item, kind));
+  }
+  metaLine(data, kind) {
+    switch (kind) {
+      case "note":
+        return t.typeNote;
+      case "pdf":
+        return t.typePdf;
+      case "attachment":
+        return t.typeAttachment;
+      default:
+        return [data.firstCreator, data.date, data.publicationTitle].filter(Boolean).join(" \xB7 ");
+    }
+  }
+  openTarget(item, kind) {
+    this.close();
+    if (kind === "note") {
+      this.plugin.insert(this.insert, itemTitle(item.data), `zotero://select/library/items/${item.key}`);
+      return;
+    }
+    new ZoteroTargetModal(this.app, this.plugin, item, this.insert).open();
   }
 };
 var ZoteroTargetModal = class extends import_obsidian.Modal {
@@ -378,28 +518,49 @@ var ZoteroTargetModal = class extends import_obsidian.Modal {
     this.plugin = plugin;
     this.item = item;
     this.insert = insert;
+    __publicField(this, "pdfDescEl");
+    __publicField(this, "noteDescEl");
   }
   onOpen() {
     this.titleEl.setText(t.chooseTargetTitle);
-    this.contentEl.createEl("h3", { text: this.item.data.title || t.untitledItem });
-    this.addChoice(t.choiceItem, t.choiceItemDesc, () => {
-      this.plugin.insert(this.insert, `[${this.item.data.title || "Zotero Item"}](zotero://select/library/items/${this.item.key})`);
-      this.close();
-    });
-    this.addChoice(t.choicePdf, t.choicePdfDesc, () => void this.choosePdf());
+    this.contentEl.createEl("h3", { text: itemTitle(this.item.data) });
+    if (this.item.data.itemType !== "attachment") {
+      this.addChoice(t.choiceItem, t.choiceItemDesc, () => {
+        this.plugin.insert(this.insert, itemTitle(this.item.data), `zotero://select/library/items/${this.item.key}`);
+        this.close();
+      });
+    }
+    const pdfChoice = this.item.data.itemType === "attachment" ? { name: t.choicePdfSelf, desc: t.choicePdfSelfDesc } : { name: t.choicePdf, desc: t.choicePdfDesc };
+    this.pdfDescEl = this.addChoice(pdfChoice.name, pdfChoice.desc, () => void this.choosePdf());
+    this.noteDescEl = this.addChoice(t.choiceNote, t.choiceNoteDesc, () => void this.chooseNote());
+    void this.loadCounts();
+  }
+  /** Replaces the choice subtitles with live subtree counts once they load. */
+  async loadCounts() {
+    try {
+      const summary = await this.plugin.getChildSummary(this.item.key);
+      this.pdfDescEl?.setText(tr(t.choicePdfCounts, {
+        pdfs: String(summary.pdfs),
+        annotations: String(summary.annotations)
+      }));
+      this.noteDescEl?.setText(tr(t.choiceNoteCounts, { notes: String(summary.notes) }));
+    } catch {
+    }
   }
   addChoice(name, description, action) {
     const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
     row.createEl("strong", { text: name });
-    row.createDiv({ text: description });
+    const desc = row.createDiv({ text: description });
     row.addEventListener("click", action);
+    return desc;
   }
   async choosePdf() {
+    const selfIsAttachment = this.item.data.itemType === "attachment";
     this.contentEl.empty();
     this.contentEl.createEl("h3", { text: t.pdfTitle });
     this.contentEl.createDiv({ text: t.pdfLoading });
     try {
-      const attachments = await this.plugin.getAttachments(this.item.key);
+      const attachments = selfIsAttachment ? [this.item] : await this.plugin.getAttachments(this.item.key);
       this.contentEl.empty();
       this.contentEl.createEl("h3", { text: t.pdfTitle });
       if (!attachments.length) {
@@ -408,13 +569,14 @@ var ZoteroTargetModal = class extends import_obsidian.Modal {
       }
       for (const attachment of attachments) {
         const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
-        row.createEl("strong", { text: attachment.data.filename || "PDF \u9644\u4EF6" });
+        row.createEl("strong", { text: cleanTitle(attachment.data.filename) || itemTitle(attachment.data) });
         row.createDiv({ text: t.pdfHint });
         const buttons = row.createDiv({ cls: "zotero-deep-linker-actions" });
         const open = buttons.createEl("button", { text: t.pdfOpenBtn });
         open.addEventListener("click", (event) => {
           event.stopPropagation();
-          this.plugin.insert(this.insert, `[${t.pdfOpenBtn.replace("Insert ", "").replace("\u63D2\u5165 ", "")}\uFF1A${attachment.data.filename || this.item.data.title || "Zotero"}](zotero://open-pdf/library/items/${attachment.key})`);
+          const label = selfIsAttachment ? itemTitle(attachment.data) : cleanTitle(this.item.data.title) || cleanTitle(attachment.data.filename) || t.pdfFallback;
+          this.plugin.insert(this.insert, label, `zotero://open-pdf/library/items/${attachment.key}`);
           this.close();
         });
         const annotations = buttons.createEl("button", { text: t.pdfAnnoBtn });
@@ -446,11 +608,41 @@ var ZoteroTargetModal = class extends import_obsidian.Modal {
         row.createEl("strong", { text: `${pageLabel(data)} \xB7 ${typeLabel}` });
         row.createDiv({ text: textPreview(data.annotationComment) || textPreview(data.annotationText) || t.annotationNoText });
         row.addEventListener("click", () => {
-          const label = `Zotero ${typeLabel}\uFF1A${pageLabel(data)}`;
-          this.plugin.insert(this.insert, `[${label}](zotero://open-pdf/library/items/${pdf.key}?page=${encodeURIComponent(data.annotationPageLabel || "")}&annotation=${annotation.key})`);
+          const title = itemTitle(this.item.data);
+          const label = data.annotationPageLabel ? tr(t.annotationLinkText, { title, page: pageLabel(data) }) : title;
+          const params = new URLSearchParams({ annotation: annotation.key });
+          if (data.annotationPageLabel) params.set("page", data.annotationPageLabel);
+          this.plugin.insert(this.insert, label, `zotero://open-pdf/library/items/${pdf.key}?${params.toString()}`);
           this.close();
         });
       }
+    } catch (error) {
+      this.contentEl.setText(error instanceof Error ? error.message : String(error));
+    }
+  }
+  async chooseNote() {
+    this.contentEl.empty();
+    this.contentEl.createEl("h3", { text: t.noteTitle });
+    this.contentEl.createDiv({ text: t.noteLoading });
+    try {
+      const notes = await this.plugin.getNotes(this.item.key);
+      this.contentEl.empty();
+      this.contentEl.createEl("h3", { text: t.noteTitle });
+      if (!notes.length) {
+        this.contentEl.createDiv({ text: t.noteNone });
+        return;
+      }
+      const title = itemTitle(this.item.data);
+      notes.forEach((note, index) => {
+        const label = tr(t.noteLinkText, { title, index: String(index + 1) });
+        const row = this.contentEl.createDiv({ cls: "zotero-deep-linker-row is-clickable" });
+        row.createEl("strong", { text: label });
+        row.createDiv({ text: notePreviewText(note.data, 140) || t.noteEmpty });
+        row.addEventListener("click", () => {
+          this.plugin.insert(this.insert, label, `zotero://select/library/items/${note.key}`);
+          this.close();
+        });
+      });
     } catch (error) {
       this.contentEl.setText(error instanceof Error ? error.message : String(error));
     }
@@ -477,54 +669,62 @@ var ZoteroLinkerSettingTab = class extends import_obsidian.PluginSettingTab {
       await this.plugin.saveSettings();
     }));
   }
-  // For Obsidian 1.13.0+ settings search
+  // Obsidian 1.13.0+ renders this tab declaratively (and indexes it for the
+  // settings search) when this returns a NON-EMPTY array, in which case the
+  // deprecated display() above is skipped entirely. Returning an empty array
+  // keeps display() as the renderer on older versions.
   getSettingDefinitions() {
     return [
       {
-        settingId: "apiUrl",
-        display: {
-          type: "text",
-          name: t.settingsApiUrl,
-          description: t.settingsApiUrlDesc
-        },
-        defaultValue: DEFAULT_SETTINGS.apiUrl,
-        onChange: async (value) => {
-          this.plugin.settings.apiUrl = cleanApiUrl(value);
-          await this.plugin.saveSettings();
-        }
-      },
-      {
-        settingId: "resultLimit",
-        display: {
-          type: "slider",
-          name: t.settingsResultLimit,
-          description: t.settingsResultLimitDesc
-        },
-        defaultValue: DEFAULT_SETTINGS.resultLimit,
-        min: 10,
-        max: 100,
-        step: 10,
-        onChange: async (value) => {
-          this.plugin.settings.resultLimit = value;
-          await this.plugin.saveSettings();
-        }
-      },
-      {
-        settingId: "collectionColumnMinWidth",
-        display: {
-          type: "slider",
-          name: t.settingsColWidth,
-          description: t.settingsColWidthDesc
-        },
-        defaultValue: DEFAULT_SETTINGS.collectionColumnMinWidth,
-        min: 150,
-        max: 450,
-        step: 10,
-        onChange: async (value) => {
-          this.plugin.settings.collectionColumnMinWidth = value;
-          await this.plugin.saveSettings();
-        }
+        type: "group",
+        heading: t.settingsTitle,
+        items: [
+          {
+            name: t.settingsApiUrl,
+            desc: t.settingsApiUrlDesc,
+            control: {
+              type: "text",
+              key: "apiUrl",
+              defaultValue: DEFAULT_SETTINGS.apiUrl,
+              placeholder: DEFAULT_SETTINGS.apiUrl
+            }
+          },
+          {
+            name: t.settingsResultLimit,
+            desc: t.settingsResultLimitDesc,
+            control: {
+              type: "slider",
+              key: "resultLimit",
+              min: 10,
+              max: 100,
+              step: 10,
+              defaultValue: DEFAULT_SETTINGS.resultLimit
+            }
+          },
+          {
+            name: t.settingsColWidth,
+            desc: t.settingsColWidthDesc,
+            control: {
+              type: "slider",
+              key: "collectionColumnMinWidth",
+              min: 150,
+              max: 450,
+              step: 10,
+              defaultValue: DEFAULT_SETTINGS.collectionColumnMinWidth
+            }
+          }
+        ]
       }
     ];
+  }
+  // The declarative controls read/write through these hooks. Point them at the
+  // plugin's own settings store and keep the API URL normalized on write.
+  getControlValue(key) {
+    return this.plugin.settings[key];
+  }
+  async setControlValue(key, value) {
+    const next = key === "apiUrl" && typeof value === "string" ? cleanApiUrl(value) : value;
+    this.plugin.settings[key] = next;
+    await this.plugin.saveSettings();
   }
 };

@@ -15,15 +15,25 @@ annotation.
    from the command palette, or use the chain-link ribbon button.
 3. Search by title, author, DOI, or keyword, or select a Zotero collection in
    the tree beside the results to browse it directly. Both are available in the
-   same window.
-4. Choose **Item**, or choose a **PDF** and then a concrete **Annotation**.
+   same window. Standalone PDF attachments and standalone notes also appear in
+   the list, marked with their own icon so they are not mistaken for items.
+4. Choose **Item**, **PDF / Annotation**, or **Note**. The subtitles show how
+   many PDFs, annotations, and notes the entry has. A standalone PDF goes
+   straight to its own PDF/annotation targets.
+
+The link text defaults to the item's title; for annotations it is
+`Title (page N)`, and for notes `Title - Note N` (a standalone note, having no
+parent title, uses its own text). If you select text in the editor **before**
+running the command (or clicking the ribbon), that selection is used as the link
+text instead.
 
 The inserted targets have these forms:
 
 ```markdown
-[Zotero Item](zotero://select/library/items/ITEM_KEY)
-[Open PDF](zotero://open-pdf/library/items/PDF_KEY)
-[Open PDF Annotation](zotero://open-pdf/library/items/PDF_KEY?page=PAGE&annotation=ANNOTATION_KEY)
+[Title](zotero://select/library/items/ITEM_KEY)
+[Title](zotero://open-pdf/library/items/PDF_KEY)
+[Title (page N)](zotero://open-pdf/library/items/PDF_KEY?page=PAGE&annotation=ANNOTATION_KEY)
+[Title - Note 1](zotero://select/library/items/NOTE_KEY)
 ```
 
 The plugin never changes Zotero items, PDFs, or annotations. It only reads the
